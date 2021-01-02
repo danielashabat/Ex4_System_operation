@@ -13,5 +13,16 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Shared header file">
+      <UniqueIdentifier>{da1cf3f8-0e7d-44dc-a103-cfb630f3b96b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shared source file">
+      <UniqueIdentifier>{f422d1eb-8cd4-4914-ab2e-9684c5b21592}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\client\message.c">
+      <Filter>Shared source file</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
