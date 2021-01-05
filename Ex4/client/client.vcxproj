@@ -141,12 +141,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\share\SocketSendRecvTools.c" />
+    <ClCompile Include="ClientFunctions.c" />
     <ClCompile Include="message.c" />
-    <ClCompile Include="main.c" />
+    <ClCompile Include="client_main.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\share\SocketSendRecvTools.h" />
     <ClInclude Include="..\share\SocketShared.h" />
+    <ClInclude Include="ClientFunctions.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
