@@ -30,63 +30,43 @@ BOOL check_if_message_type_instr_message(char* string_message, char* message_typ
 	
 }
 
-BOOL get_param_index_and_len_one_param(int* indexes, int* lens, char* str) {
 
-	BOOL flag_colon = FALSE;
-	int len = 0;
-	int index = 0;
-	for (int i = 0; i < strlen(str); i++) {
-		if (flag_colon) {
-			if (str[i] == ":") {
-				flag_colon = TRUE;
-				index = i + 1;
-			}
-		}
-		else {
-			len++;
-		}
 
-	}
-	indexes[0] = index;
-	lens[0] = len;
 
-}
 
-void get_param_index_and_len_2_param(int* indexes, int* lens, char* str) {
+void get_param_index_and_len(int* indexes, int* lens, char* str, int message_len) {
 
-	BOOL flag_colon = FALSE;
-	int param = 0;
+	int param_index = 0;
+	int param_len = 0;
 	int len = 0;
 	int index;
-	for (int i = 0; i < strlen(str); i++) {
-		if (flag_colon) {
-			if (str[i] == ":") {
-				flag_colon = TRUE;
-				indexes[param] = i + 1;
-			}
-		}
-		else {
-			if (str[i] == ";") {
-				lens[param] = len;
-				param++;
-				len = 0;
-				indexes[param] = i + 1;
-			}
-			else if (str[i] == "\n") {
-				lens[param] = len;
-				param++;
-				len = 0;
-				indexes[param] = i + 1;
-				return ;
-			}
-			else
-				len++;
-		}
 
+	indexes[param_index] = message_len + 1;
+	param_index++;
+
+	for (int i = message_len + 1; i < strlen(str); i++) {
+
+		if (str[i] == ';') {
+			lens[param_len] = len;
+			param_len++;
+			len = 0;
+			indexes[param_index] = i + 1;
+			param_index++;
+		}
+		else if (str[i] == '\n') {
+			lens[param_len] = len;
+			return;
+		}
+		else
+			len++;
 	}
+
+
 	return;
 
 }
+
+
 
 TransferResult_t SendBuffer( const char* Buffer, int BytesToSend, SOCKET sd )
 {
