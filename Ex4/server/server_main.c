@@ -16,7 +16,7 @@
 
 #define SEND_STR_SIZE 100
 HANDLE event_thread[NUM_OF_WORKER_THREADS];
-
+HANDLE file = NULL;
 HANDLE ThreadHandles[NUM_OF_WORKER_THREADS];
 SOCKET ThreadInputs[NUM_OF_WORKER_THREADS];
 SOCKET AcceptSocket;
@@ -164,7 +164,7 @@ static DWORD ServiceThread(SOCKET* t_socket) {
     BOOL Done = FALSE;
     TransferResult_t SendRes;
     TransferResult_t RecvRes;
-
+    BOOL retval = FALSE;
   
     char* AcceptedStr = NULL;
     RecvRes = ReceiveString(&AcceptedStr, *t_socket);
@@ -177,8 +177,10 @@ static DWORD ServiceThread(SOCKET* t_socket) {
         strncpy_s(user_name, lens[0], *(AcceptedStr + indexes[0]), strlen(user_name));
         strcpy_s(SendStr, strlen("SERVER_APPROVED"), "SERVER_APPROVED");
         SendRes = SendString(SendStr, *t_socket);
+        if (!check_send) return FALSE;
         strcpy_s(SendStr, strlen("SERVER_MAIN_MENU"), "SERVER_MAIN_MENU");
         SendRes = SendString(SendStr, *t_socket);
+        if (!check_send) return FALSE;
         
     }
     RecvRes = ReceiveString(&AcceptedStr, *t_socket);
@@ -187,6 +189,10 @@ static DWORD ServiceThread(SOCKET* t_socket) {
         Done == TRUE;
         
     }
+
+    retval = file_handle(&user_name);
+
+   
     
 
 
@@ -238,7 +244,7 @@ BOOL Create_Thread_data(SOCKET socket, int num_of_thread, ThreadData** ptr_to_th
     return TRUE;
 }
 BOOL create_mutexs_and_events() {
-    
+
     event_thread[0] = CreateEvent(
         NULL,               // default security attributes
         TRUE,               // manual-reset event
@@ -275,3 +281,47 @@ BOOL create_mutexs_and_events() {
     }
 
     return TRUE;
+}
+
+BOOL file_handle(char* user_name) {
+    // check if need to open file - protected by mutex;
+    DWORD wait_code;
+    BOOL ret_val;
+    char file_path[16] = "GameSession.txt";
+    BOOL bErrorFlag = FALSE;
+    DWORD lpNumberOfBytesWritten;
+   /* Create the mutex that will be used to synchronize access to queue */
+    wait_code = WaitForSingleObject(create_file_mutex, INFINITE);
+    if (WAIT_OBJECT_0 != wait_code)
+    {
+        printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
+        return FALSE;
+    }
+    //critical section- check if queue is not empty and pop the mission 
+    if (file == NULL) {
+            file = CreateFileA((LPCSTR)file_path,// file name 
+            GENERIC_WRITE,          // open for reading 
+            FILE_SHARE_WRITE,      // open sharing for writing only 
+            NULL,                  // default security 
+            CREATE_ALWAYS,         // always creats a new file, if the file exists it overwrites it 
+            FILE_ATTRIBUTE_NORMAL, // normal file 
+            NULL);
+  
+            WriteFile(file, user_name, strlen(user_name), &lpNumberOfBytesWritten, NULL);
+    }
+    else {
+        WriteFile(file, user_name, strlen(user_name), &lpNumberOfBytesWritten, NULL);
+    }
+    //end of critical section 
+    //*Release queue mutex
+    
+    ret_val = ReleaseMutex(create_file_mutex);
+    if (FALSE == ret_val)
+    {
+        printf("-ERROR: %d - release semaphore failed !\n", GetLastError());
+        return FALSE;
+    }
+    return TRUE;
+    
+    
+    }
