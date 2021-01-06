@@ -35,14 +35,14 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\share\SocketSendRecvTools.h">
-      <Filter>Shared header file</Filter>
-    </ClInclude>
-    <ClInclude Include="..\share\SocketShared.h">
-      <Filter>Shared header file</Filter>
-    </ClInclude>
     <ClInclude Include="ClientFunctions.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SocketSendRecvTools.h">
+      <Filter>Shared header file</Filter>
+    </ClInclude>
+    <ClInclude Include="SocketShared.h">
+      <Filter>Shared header file</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
