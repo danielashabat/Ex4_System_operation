@@ -81,10 +81,12 @@ TransferResult_t ReceiveBuffer( char* OutputBuffer, int RemainingBytesToReceive,
  * TRNS_FAILED - otherwise
  */ 
 TransferResult_t ReceiveString( char** OutputStrPtr, SOCKET sd );
-
-
+BOOL check_recv(char* RecvRes);
+void get_param_index_and_len(int* indexes, int* lens, char* str, int message_len);
 /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
-
+BOOL check_send(char* SendRes);
 BOOL check_if_message_type_instr_message(char* string_message, char* message_type);
 
 #endif // SOCKET_SEND_RECV_TOOLS_H
+
+

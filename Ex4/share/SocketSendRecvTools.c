@@ -211,3 +211,12 @@ BOOL check_recv(char* RecvRes) {
 	}
 
 }
+
+BOOL check_send(char* SendRes) {
+	if (SendRes == TRNS_FAILED)
+	{
+		printf("Service socket error while writing, closing thread.\n");
+		return FALSE;
+	}
+	return TRUE;
+}

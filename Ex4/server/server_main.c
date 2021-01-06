@@ -168,12 +168,7 @@ static DWORD ServiceThread(SOCKET* t_socket) {
   
     char* AcceptedStr = NULL;
     RecvRes = ReceiveString(&AcceptedStr, *t_socket);
-    if (RecvRes == TRNS_FAILED)
-    {
-        printf("Service socket error while reading, closing thread.\n");
-        closesocket(*t_socket);
-        return 1;
-    }
+    if (!check_recv) return FALSE;
     char user_name[20];
     if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_REQUEST")) {
         int indexes[1];
@@ -186,6 +181,8 @@ static DWORD ServiceThread(SOCKET* t_socket) {
         SendRes = SendString(SendStr, *t_socket);
         
     }
+    RecvRes = ReceiveString(&AcceptedStr, *t_socket);
+    if (!check_recv) return FALSE;
     if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_DISCONNECT")) {
         Done == TRUE;
         
