@@ -2,7 +2,7 @@
 
 
 //Sending message to the server
- DWORD SendMsg(SOCKET socket, char string[])
+ DWORD SendExample(SOCKET socket, char string[])
 {
 	TransferResult_t SendRes;
 

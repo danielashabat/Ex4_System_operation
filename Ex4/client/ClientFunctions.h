@@ -17,5 +17,5 @@
 
 // Function Declarations -------------------------------------------------------
 
-DWORD SendMsg(SOCKET socket, char string[]);
+DWORD SendExample(SOCKET socket, char string[]);
 #endif // CLIENT_FUNCTIONS_H

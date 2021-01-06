@@ -9,7 +9,6 @@
 #include "SocketShared.h"
 #include "SocketSendRecvTools.h"
 
-
 /*-------------Define Varibles--------*/
 #define NUM_OF_WORKER_THREADS 2
 
