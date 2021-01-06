@@ -193,3 +193,21 @@ TransferResult_t ReceiveString( char** OutputStrPtr, SOCKET sd )
 		
 	return RecvRes;
 }
+
+BOOL check_recv(char* RecvRes) {
+	if (RecvRes == TRNS_FAILED)
+	{
+		printf("Service socket error while reading, closing thread.\n");
+		return FALSE;
+	}
+	else if (RecvRes == TRNS_DISCONNECTED)
+	{
+		printf("Connection closed while reading, closing thread.\n");
+		return FALSE;
+	}
+	else
+	{
+		return TRUE;
+	}
+
+}
