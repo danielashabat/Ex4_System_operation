@@ -319,8 +319,8 @@ static DWORD ServiceThread(LPVOID lpParam) {
             return FALSE;
         }
         //first  send user name 
-        char message_to_file[25];
-        char oppsite_user_name[25];
+        char message_to_file[27];
+        char oppsite_user_name[27];
         int offest_end_file = 0 ;
         strcpy_s(message_to_file,25, user_title);
 
