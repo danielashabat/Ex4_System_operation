@@ -75,7 +75,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>C:\Users\Anat\source\repos\Ex4_System_operation\Ex4\share;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)\..\share;C:\Users\Anat\source\repos\Ex4_System_operation\Ex4\share;$(ProjectDir);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -140,15 +140,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\share\message.c" />
     <ClCompile Include="..\share\SocketSendRecvTools.c" />
     <ClCompile Include="ClientFunctions.c" />
-    <ClCompile Include="message.c" />
     <ClCompile Include="client_main.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\share\SocketSendRecvTools.h" />
+    <ClInclude Include="..\share\SocketShared.h" />
     <ClInclude Include="ClientFunctions.h" />
-    <ClInclude Include="SocketSendRecvTools.h" />
-    <ClInclude Include="SocketShared.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

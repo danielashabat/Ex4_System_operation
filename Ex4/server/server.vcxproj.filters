@@ -21,9 +21,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\client\message.c">
-      <Filter>Shared source file</Filter>
-    </ClCompile>
     <ClCompile Include="server_main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -32,6 +29,9 @@
     </ClCompile>
     <ClCompile Include="server_main_header.h">
       <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\share\message.c">
+      <Filter>Shared source file</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
