@@ -55,6 +55,7 @@ int main() {
 // Check for general errors.
 	if (connect(client_socket, (SOCKADDR*)&clientService, sizeof(clientService)) == SOCKET_ERROR) {
 		printf("Failed to connect.\n");
+		closesocket(client_socket);
 		WSACleanup();
 		return;
 	}
