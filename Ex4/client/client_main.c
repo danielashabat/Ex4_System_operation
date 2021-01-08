@@ -6,6 +6,8 @@ Description –  this file implement the client main
  */
  /*oOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoOoO*/
 
+// Includes --------------------------------------------------------------------
+#include "message.h"
 #include "ClientFunctions.h"
 
 int main() {
@@ -57,6 +59,14 @@ int main() {
 		return;
 	}
 
+	char user_name[] = "daniela";
+	char* params[1] = {user_name};
+	DWORD ret_val = 0;
+	ret_val=SendMsg(client_socket, CLIENT_REQUEST, params);
+	if (ret_val != 0) {
+		printf("ERROR:sendMSG failed\n");
+		//end program
+	}
 
 
 	closesocket(client_socket);

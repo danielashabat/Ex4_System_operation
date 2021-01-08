@@ -1,15 +1,10 @@
-#include <stdio.h>
-#include <stdlib.h> 
-#include <string.h>
-//#include <Windows.h>
-#include <winsock2.h>
-#include "SocketShared.h"
-#include "SocketSendRecvTools.h"
 
 /*this module include all the messages types for the send/recieve functions*/
 
-typedef enum { CLIENT_REQUEST } message_type;
-#define MSG_LEN 100//ask anat for the right length
+// Includes --------------------------------------------------------------------
+#include "message.h"
+
+// Function Implementation -------------------------------------------------------
 
 DWORD SendMsg(SOCKET socket, int message_type, char *params[]) {
 	TransferResult_t SendRes;

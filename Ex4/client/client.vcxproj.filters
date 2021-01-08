@@ -44,5 +44,8 @@
     <ClInclude Include="ClientFunctions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\share\message.h">
+      <Filter>Shared header file</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
