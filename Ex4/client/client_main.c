@@ -10,17 +10,12 @@ Description –  this file implement the client main
 #include "message.h"
 #include "ClientFunctions.h"
 
-#define END_PROGRAM 16
+
+#define USER_LEN 20
 
 int main() {
 
-	////BEGIN ANAT
-	//char str[16] = "hello:anat;gil\n";
-	//int indexes[2];
-	//int lens[2];
-
-	//get_param_index_and_len_2_param(&indexes, &lens, &str);
-	////END ANAT
+	char username[USER_LEN] = "daniela";
 
 	//DANIELA BEGIN
 	SOCKET client_socket;
@@ -69,10 +64,7 @@ int main() {
 	//while true
 	switch (state) {
 	case CLIENT_REQUEST:
-		//client requst
-		RecieveMsg(client_socket, &message_type, params);
-		if (message_type == SERVER_APPROVED) state = SERVER_MAIN_MENU;
-		else state = END_PROGRAM;//server denied 
+		client_request(client_socket, username, &state);
 		break;
 
 	case SERVER_MAIN_MENU:
@@ -82,26 +74,9 @@ int main() {
 	case END_PROGRAM:
 		break;
 
-
 	}
 
 
-	//char user_name[] = "daniela";
-	//char* params[1] = {user_name};
-	//DWORD ret_val = 0;
-	//ret_val=SendMsg(client_socket, CLIENT_REQUEST, params);
-	//if (ret_val != 0) {
-	//	printf("ERROR:sendMSG failed\n");
-	//	//end program
-	//}
-
-	//
-	
-	//ret_val = RecieveMsg(client_socket, CLIENT_REQUEST, params);
-	//if (ret_val != 0) {
-	//	printf("ERROR:sendMSG failed\n");
-	//	//end program
-	//}
 
 
 	closesocket(client_socket);
