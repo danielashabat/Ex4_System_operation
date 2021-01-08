@@ -122,6 +122,8 @@ int main() {
         }
         else
         {
+
+            printf("creating thread\n");
             Create_Thread_data(&AcceptSocket, Ind,&ptr_to_thread);
             CreateThreadSimple((LPTHREAD_START_ROUTINE)ServiceThread, ptr_to_thread, ThreadHandles+Ind);
            //ThreadInputs[Ind] = AcceptSocket; // shallow copy: don't close 
@@ -196,7 +198,7 @@ static int FindFirstUnusedThreadSlot(){
 }
 
 static DWORD ServiceThread(LPVOID lpParam) {
-
+    printf("enter to thread\n");
     char SendStr[SEND_STR_SIZE];
     char ParamStr[SEND_STR_SIZE];
     int num_of_param;
@@ -212,29 +214,40 @@ static DWORD ServiceThread(LPVOID lpParam) {
     DWORD dwWaitResultFile;
     t_socket = p_params->p_socket;
     Ind = p_params->thread_number;
-    char user_title[5];
-    char user_opposite_title[5];
+    char user_title[7];
+    char user_opposite_title[7];
     char* user_opposite_pointer;
-    int oppsite_ind = other_thread_ind(Ind, &user_title, &user_opposite_title);
+    int oppsite_ind = other_thread_ind(Ind, user_title, user_opposite_title);
     char initial_number[4];
     char* AcceptedStr = NULL;
-
-
-
-
+    printf("before recieving \n");
     RecvRes = ReceiveString(&AcceptedStr, *t_socket);
-    if (!check_recv) return FALSE;
+
+    if (!check_recv(RecvRes)) {
+        printf("recieve string failed\n");
+        return FALSE;
+    }
+    else {
+        printf("recieve string succeed: %s", AcceptedStr);
+    }
     char user_name[20];
 
     //get user name from client
     if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_REQUEST")) {
+        printf("client request\n");
         int indexes[1];
         int lens[1];
         get_param_index_and_len(&indexes, &lens, AcceptedStr, strlen(AcceptedStr));
         strncpy_s(user_name, lens[0], *(AcceptedStr + indexes[0]), strlen(user_name));//get user name
         strcpy_s(SendStr, strlen("SERVER_APPROVED"), "SERVER_APPROVED");
         SendRes = SendString(SendStr, *t_socket);//send SERVER_APPROVED to client
-        if (!check_send(SendRes)) return FALSE;
+        if (!check_send(SendRes)) {
+            printf("send string failed\n");
+            return FALSE;
+        }
+        else {
+            printf("send string succeed\n");
+        }
         strcpy_s(SendStr, strlen("SERVER_MAIN_MENU"), "SERVER_MAIN_MENU");// send main menu  to client
         SendRes = SendString(SendStr, *t_socket);
         if (!check_send(SendRes)) return FALSE;
@@ -455,16 +468,16 @@ BOOL file_handle(char* user_name, int Ind) {
     }
 
 
-int other_thread_ind(int Ind,char** user_name, char** oppsite_user_name) {
+int other_thread_ind(int Ind,char* user_name, char* oppsite_user_name) {
 
     if (Ind == 0) {
-        strcpy_s(*user_name, 5, "user0:");
-        strcpy_s(*oppsite_user_name, 5, "user1:");
+        strcpy_s(user_name, 7, "user0:");
+        strcpy_s(oppsite_user_name, 7, "user1:");
         return 1;
     }
     if (Ind == 1) {
-        strcpy_s(*user_name, 5, "user1:");
-        strcpy_s(*oppsite_user_name, 5, "user0:");
+        strcpy_s(user_name, 7, "user1:");
+        strcpy_s(oppsite_user_name, 7, "user0:");
         
         return 0;
     }
@@ -522,7 +535,7 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
         int indexes[1];
         int lens[1];
         get_param_index_and_len(&indexes, &lens, user_opposite_pointer, 5);
-        strncpy_s(message_from_file, lens[0], user_opposite_pointer, len(user_opposite_pointer));
+        strncpy_s(message_from_file, lens[0], user_opposite_pointer, strlen(user_opposite_pointer));
     }
    
     ret_val = ReleaseMutex(file_mutex);
