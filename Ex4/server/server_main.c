@@ -290,6 +290,7 @@ BOOL file_handle(char* user_name) {
     char file_path[16] = "GameSession.txt";
     BOOL bErrorFlag = FALSE;
     DWORD lpNumberOfBytesWritten;
+    LPDWORD* end_of_file_offset;
    /* Create the mutex that will be used to synchronize access to queue */
     wait_code = WaitForSingleObject(create_file_mutex, INFINITE);
     if (WAIT_OBJECT_0 != wait_code)
@@ -310,6 +311,8 @@ BOOL file_handle(char* user_name) {
             WriteFile(file, user_name, strlen(user_name), &lpNumberOfBytesWritten, NULL);
     }
     else {
+        GetFileSize(file, end_of_file_offset);
+        SetFilePointer(file, end_of_file_offset, NULL, FILE_BEGIN); 
         WriteFile(file, user_name, strlen(user_name), &lpNumberOfBytesWritten, NULL);
     }
     //end of critical section 
