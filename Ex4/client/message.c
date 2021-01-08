@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h> 
 #include <string.h>
-#include <Windows.h>
+//#include <Windows.h>
 #include "ClientFunctions.h"
 
 /*this module include all the messages types for the send/recieve functions*/

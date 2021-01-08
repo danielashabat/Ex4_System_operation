@@ -16,12 +16,23 @@
 
 #define SEND_STR_SIZE 100
 HANDLE event_thread[NUM_OF_WORKER_THREADS];
+HANDLE event_file= NULL;
 HANDLE file = NULL;
 HANDLE ThreadHandles[NUM_OF_WORKER_THREADS];
 SOCKET ThreadInputs[NUM_OF_WORKER_THREADS];
 SOCKET AcceptSocket;
-HANDLE create_file_mutex = NULL;
+HANDLE file_mutex = NULL;
 /* -------------main------------------*/
+int other_thread_ind(int Ind, char* user_name, char* oppsite_user_name);
+BOOL  CreateThreadSimple(LPTHREAD_START_ROUTINE p_start_routine,
+    LPVOID p_thread_parameters, HANDLE* thread_handle);
+BOOL Create_Thread_data(SOCKET socket, int num_of_thread, ThreadData** ptr_to_thread_data);
+BOOL file_handle(char* user_name, int Ind);
+static DWORD ServiceThread(LPVOID lpParam);
+BOOL create_mutexs_and_events();
+BOOL game_session(int Ind, char* message_to_file, char** message_from_file);
+
+
 int main() {
     int Ind;
     int Loop;
@@ -85,6 +96,7 @@ int main() {
     // Initialize all thread handles to NULL, to mark that they have not been initialized
     for (Ind = 0; Ind < NUM_OF_WORKER_THREADS; Ind++)
         ThreadHandles[Ind] = NULL;
+    create_mutexs_and_events();
 
     for (Loop = 0; Loop < MAX_LOOPS; Loop++)
     {
@@ -108,12 +120,36 @@ int main() {
         else
         {
             Create_Thread_data(AcceptSocket, Ind,&ptr_to_thread);
-            CreateThreadSimple(ServiceThread, ptr_to_thread, ThreadHandles+Ind);
+            CreateThreadSimple((LPTHREAD_START_ROUTINE)ServiceThread, ptr_to_thread, ThreadHandles+Ind);
            //ThreadInputs[Ind] = AcceptSocket; // shallow copy: don't close 
                                               // AcceptSocket, instead close 
                                               // ThreadInputs[Ind] when the
                                               // time comes.
             
+        }
+
+
+    }
+
+    for (Ind = 0; Ind < NUM_OF_WORKER_THREADS; Ind++)
+    {
+        if (ThreadHandles[Ind] != NULL)
+        {
+            // poll to check if thread finished running:
+            DWORD Res = WaitForSingleObject(ThreadHandles[Ind], INFINITE);
+
+            if (Res == WAIT_OBJECT_0)
+            {
+                closesocket(ThreadInputs[Ind]);
+                CloseHandle(ThreadHandles[Ind]);
+                ThreadHandles[Ind] = NULL;
+                break;
+            }
+            else
+            {
+                printf("Waiting for thread failed. Ending program\n");
+                return;
+            }
         }
     }
 /*---------------goto cleanup-------------------*/
@@ -156,7 +192,7 @@ static int FindFirstUnusedThreadSlot(){
     return Ind;
 }
 
-static DWORD ServiceThread(SOCKET* t_socket) {
+static DWORD ServiceThread(LPVOID lpParam) {
 
     char SendStr[SEND_STR_SIZE];
     char ParamStr[SEND_STR_SIZE];
@@ -165,7 +201,15 @@ static DWORD ServiceThread(SOCKET* t_socket) {
     TransferResult_t SendRes;
     TransferResult_t RecvRes;
     BOOL retval = FALSE;
-  
+    SOCKET* t_socket = NULL;
+    BOOL read_users_flag;
+    int Ind;
+    ThreadData* p_params;
+    p_params = (ThreadData*)lpParam;
+    DWORD dwWaitResultFile;
+    t_socket = p_params->p_socket;
+    Ind = p_params->thread_number;
+
     char* AcceptedStr = NULL;
     RecvRes = ReceiveString(&AcceptedStr, *t_socket);
     if (!check_recv) return FALSE;
@@ -190,9 +234,18 @@ static DWORD ServiceThread(SOCKET* t_socket) {
         
     }
 
-    retval = file_handle(&user_name);
+    //retval = file_handle(&user_name, Ind);
+    
+   // dwWaitResultFile = WaitForSingleObject(
+       // event_file, // event handle
+       // INFINITE);    // indefinite wait
 
-   
+    //if (dwWaitResultFile != WAIT_OBJECT_0) {
+      //  printf("Wait error (%d)\n", GetLastError());
+      //  return FALSE;
+   // }
+
+  
     
 
 
@@ -262,7 +315,7 @@ BOOL create_mutexs_and_events() {
         NULL,               // default security attributes
         TRUE,               // manual-reset event
         FALSE,              // initial state is nonsignaled
-        TEXT("First_thread")  // object name
+        TEXT("Second_thread")  // object name
     );
 
     if (event_thread[1] == NULL)
@@ -270,11 +323,25 @@ BOOL create_mutexs_and_events() {
         printf("CreateEvent failed (%d)\n", GetLastError());
         return FALSE;
     }
-    create_file_mutex = CreateMutex(
+
+    event_file = CreateEvent(
+        NULL,               // default security attributes
+        TRUE,               // manual-reset event
+        FALSE,              // initial state is nonsignaled
+        TEXT("File_Event")  // object name
+    );
+
+    if (event_file == NULL)
+    {
+        printf("CreateEvent failed (%d)\n", GetLastError());
+        return FALSE;
+    }
+
+    file_mutex = CreateMutex(
         NULL,	/* default security attributes */
         FALSE,	/* initially not owned */
         NULL);	/* unnamed mutex */
-    if (NULL == create_file_mutex)
+    if (NULL == file_mutex)
     {
         printf("Error when creating mutex: %d\n", GetLastError());
         return FALSE;
@@ -283,7 +350,7 @@ BOOL create_mutexs_and_events() {
     return TRUE;
 }
 
-BOOL file_handle(char* user_name) {
+BOOL file_handle(char* user_name, int Ind) {
     // check if need to open file - protected by mutex;
     DWORD wait_code;
     BOOL ret_val;
@@ -291,8 +358,9 @@ BOOL file_handle(char* user_name) {
     BOOL bErrorFlag = FALSE;
     DWORD lpNumberOfBytesWritten;
     LPDWORD* end_of_file_offset;
+    
    /* Create the mutex that will be used to synchronize access to queue */
-    wait_code = WaitForSingleObject(create_file_mutex, INFINITE);
+    wait_code = WaitForSingleObject(file_mutex, INFINITE);
     if (WAIT_OBJECT_0 != wait_code)
     {
         printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
@@ -307,18 +375,17 @@ BOOL file_handle(char* user_name) {
             CREATE_ALWAYS,         // always creats a new file, if the file exists it overwrites it 
             FILE_ATTRIBUTE_NORMAL, // normal file 
             NULL);
-  
-            WriteFile(file, user_name, strlen(user_name), &lpNumberOfBytesWritten, NULL);
     }
     else {
-        GetFileSize(file, end_of_file_offset);
-        SetFilePointer(file, end_of_file_offset, NULL, FILE_BEGIN); 
-        WriteFile(file, user_name, strlen(user_name), &lpNumberOfBytesWritten, NULL);
+        //GetFileSize(file, end_of_file_offset);
+        //SetFilePointer(file, end_of_file_offset, NULL, FILE_BEGIN); 
+        //WriteFile(file, user_name, strlen(user_name), &lpNumberOfBytesWritten, NULL);
+        SetEvent(event_file);
     }
     //end of critical section 
     //*Release queue mutex
     
-    ret_val = ReleaseMutex(create_file_mutex);
+    ret_val = ReleaseMutex(file_mutex);
     if (FALSE == ret_val)
     {
         printf("-ERROR: %d - release semaphore failed !\n", GetLastError());
@@ -328,3 +395,39 @@ BOOL file_handle(char* user_name) {
     
     
     }
+
+
+int other_thread_ind(int Ind,char* user_name, char* oppsite_user_name) {
+
+    if (Ind == 0) {
+        user_name = "user0";
+        oppsite_user_name = "user1";
+        return 1;
+    }
+    if (Ind == 1) {
+        user_name = "user1";
+        oppsite_user_name = "user0";
+        return 0;
+    }
+}
+
+
+BOOL game_session(int Ind , char* message_to_file, char** message_from_file) {
+
+    DWORD wait_code;
+    BOOL bErrorFlag = FALSE;
+    DWORD lpNumberOfBytesWritten;
+    //LPDWORD* end_of_file_offset;
+
+    wait_code = WaitForSingleObject(file_mutex, INFINITE);
+    if (WAIT_OBJECT_0 != wait_code)
+    {
+        printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
+        return FALSE;
+    }
+
+    //critical 
+    SetFilePointer(file, 0, NULL, FILE_END); 
+    WriteFile(file, message_to_file, strlen(message_to_file), &lpNumberOfBytesWritten, NULL);
+
+}
