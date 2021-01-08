@@ -133,7 +133,7 @@ int main() {
         }
         else
         {
-            Create_Thread_data(AcceptSocket, Ind,&ptr_to_thread);
+            Create_Thread_data(&AcceptSocket, Ind,&ptr_to_thread);
             CreateThreadSimple((LPTHREAD_START_ROUTINE)ServiceThread, ptr_to_thread, ThreadHandles+Ind);
            //ThreadInputs[Ind] = AcceptSocket; // shallow copy: don't close 
                                               // AcceptSocket, instead close 
@@ -302,14 +302,14 @@ BOOL  CreateThreadSimple(LPTHREAD_START_ROUTINE p_start_routine,
 }
 
 
-BOOL Create_Thread_data(SOCKET socket, int num_of_thread, ThreadData** ptr_to_thread_data) {
+BOOL Create_Thread_data(SOCKET* socket, int num_of_thread, ThreadData** ptr_to_thread_data) {
     (*ptr_to_thread_data) = (ThreadData*)malloc(sizeof(ThreadData));
     if (*ptr_to_thread_data == NULL) {
         printf("ERROR: allocation failed!\n");
         return FALSE;
     }
     (*ptr_to_thread_data)->thread_number = num_of_thread;
-    (*ptr_to_thread_data)->p_socket = &socket;
+    (*ptr_to_thread_data)->p_socket = socket;
     // (*ptr_to_thread_data)->Event_first_thread = event_first_thread;
     // (*ptr_to_thread_data)->Event_second_thread = event_second_thread;
     return TRUE;
@@ -386,13 +386,8 @@ BOOL file_handle(char* user_name, int Ind) {
     }
     //critical section- check if queue is not empty and pop the mission 
     if (file == NULL) {
-            file = CreateFileA((LPCSTR)file_path,// file name 
-            GENERIC_WRITE,          // open for reading 
-            FILE_SHARE_WRITE,      // open sharing for writing only 
-            NULL,                  // default security 
-            CREATE_ALWAYS,         // always creats a new file, if the file exists it overwrites it 
-            FILE_ATTRIBUTE_NORMAL, // normal file 
-            NULL);
+        file = CreateFileA((LPCSTR)file_path,// file name 
+            GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     }
     else {
         //GetFileSize(file, end_of_file_offset);
@@ -415,28 +410,32 @@ BOOL file_handle(char* user_name, int Ind) {
     }
 
 
-int other_thread_ind(int Ind,char* user_name, char* oppsite_user_name) {
+int other_thread_ind(int Ind,char** user_name, char** oppsite_user_name) {
 
     if (Ind == 0) {
-        user_name = "user0";
-        oppsite_user_name = "user1";
+        strcpy_s(*user_name, 5, "user0");
+        strcpy_s(*oppsite_user_name, 5, "user1");
         return 1;
     }
     if (Ind == 1) {
-        user_name = "user1";
-        oppsite_user_name = "user0";
+        strcpy_s(*user_name, 5, "user1");
+        strcpy_s(*oppsite_user_name, 5, "user0");
+        
         return 0;
     }
 }
 
 
-BOOL game_session(int Ind , char* message_to_file, char** message_from_file) {
+BOOL game_session(int Ind , char* message_to_file, char** message_from_file, BOOL users_name_flag) {
 
     DWORD wait_code;
     BOOL bErrorFlag = FALSE;
     DWORD lpNumberOfBytesWritten;
-    //LPDWORD* end_of_file_offset;
-
+    BOOL ret_val;
+    DWORD dwWaitResultOtherClient;
+    char user_title[5];
+    char user_opposite_title[5];
+    int oppsite_ind = other_thread_ind(Ind, &user_title, &user_opposite_title);
     wait_code = WaitForSingleObject(file_mutex, INFINITE);
     if (WAIT_OBJECT_0 != wait_code)
     {
@@ -447,5 +446,33 @@ BOOL game_session(int Ind , char* message_to_file, char** message_from_file) {
     //critical 
     SetFilePointer(file, 0, NULL, FILE_END); 
     WriteFile(file, message_to_file, strlen(message_to_file), &lpNumberOfBytesWritten, NULL);
+    SetEvent(event_thread[Ind]);
 
+    ret_val = ReleaseMutex(file_mutex);
+    if (FALSE == ret_val)
+    {
+        printf("-ERROR: %d - release semaphore failed !\n", GetLastError());
+        return FALSE;
+    }
+    return TRUE;
+
+    dwWaitResultOtherClient = WaitForSingleObject(
+    event_thread[oppsite_ind], // event handle
+    INFINITE);    // indefinite wait
+
+    if (dwWaitResultOtherClient != WAIT_OBJECT_0) {
+        printf("Wait error (%d)\n", GetLastError());
+        return FALSE;
+    }
+    
+    wait_code = WaitForSingleObject(file_mutex, INFINITE);
+    if (WAIT_OBJECT_0 != wait_code)
+    {
+        printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
+        return FALSE;
+    }
+    if (users_name_flag) {
+        SetFilePointer(file, 0, NULL, FILE_BEGIN);
+        
+    }
 }
