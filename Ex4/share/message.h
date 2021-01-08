@@ -13,7 +13,11 @@
 #include "SocketSendRecvTools.h"
 
 // Macros --------------------------------------------------------------------
-
+#define IS_FAIL(RESULT) if (RESULT == TRNS_FAILED)\
+{\
+    printf("function:[%s line:%d] fail\n", __func__,__LINE__);\
+    return FALSE;\
+}
 typedef enum { CLIENT_REQUEST,CLIENT_VERSUS,CLIENT_SETUP,CLIENT_PLAYER_MOVE,CLIENT_DISCONNECT,SERVER_MAIN_MENU, SERVER_APPROVED,SERVER_DENIED,} message_type;
 #define MSG_LEN 100//ask anat for the right length
 // Function Declarations -------------------------------------------------------
@@ -26,7 +30,7 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]);
  * Accepts:
  * -------
  * message_type - pointer to int
- * params -pointer to array of strings that need to be pointed to NULL. for example : char **params=NULL
+ * params -pointer to array of strings that need to be pointed to NULL. for example : char ***params=NULL
  *
  * socket - the socket used for communication.
  *
@@ -36,7 +40,7 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]);
  * TRNS_DISCONNECTED - if the socket was disconnected
  * TRNS_FAILED - otherwise
  */
-DWORD RecieveMsg(SOCKET socket, int* message_type, char** params);
+DWORD RecieveMsg(SOCKET socket, int* message_type, char*** params);
 
 /*copy_param_from_message
 * dest - pointer to the destination of the string
@@ -45,4 +49,6 @@ index - is the index the parameter is placed into msg
 len - is the len of the parameter (not include \0)
 */
 void copy_param_from_message(char* dest, char* msg, int index, int len);
+
+void get_params(char msg[], int inputs, char** params);
 #endif //  MESSAGE_H

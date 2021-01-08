@@ -40,16 +40,17 @@
 	 }
 
 	 char** recieve_params = NULL;
-	 ret_val = RecieveMsg(socket, &message_type, recieve_params);//recieve server respond
-	 if (ret_val != 0) {
-		 printf("ERROR:RecieveMsg failed\n");
+	 ret_val = RecieveMsg(socket, &message_type, &recieve_params);//recieve server respond
+	 if (ret_val != TRNS_SUCCEEDED) {
+		 printf("%s line[%d] ERROR:RecieveMsg failed\n", __func__, __LINE__);
 		 return ret_val;
 	 }
 	 if (message_type == SERVER_APPROVED) 
-		 *new_state = SERVER_MAIN_MENU; 
+		 *new_state = SERVER_APPROVED;
 	 else 
+		 //server denied need to read the respond
 		 *new_state = END_PROGRAM;//server denied 
 
-	 free(recieve_params);
+	 free(&recieve_params);
 	 return TRNS_SUCCEEDED;
  }

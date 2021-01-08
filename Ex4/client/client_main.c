@@ -12,8 +12,17 @@ Description –  this file implement the client main
 
 
 #define USER_LEN 20
+#define MAX_PARAMS 4
+
+
 
 int main() {
+	//char msg[] = "client:daniela;or";
+	//char *params[2];
+	//get_params(msg,2,params);
+	//printf("%s\n", params[0]);
+	//printf("%s\n", params[1]);
+	//return;
 
 	char username[USER_LEN] = "daniela";
 
@@ -56,17 +65,25 @@ int main() {
 		WSACleanup();
 		return;
 	}
-	int state = CLIENT_REQUEST;
 	int message_type = 0;
-	char** params = NULL;
+	char* send_params[MAX_PARAMS];
+	char** recieve_params = NULL;
+	DWORD ret_val = 0;
 
 
 	//while true
-	switch (state) {
+	ret_val = RecieveMsg(socket, &message_type, &recieve_params);//recieve server respond
+	IS_FAIL(ret_val);
+	switch (message_type) {
 	case CLIENT_REQUEST:
-		client_request(client_socket, username, &state);
+		strcpy_s(send_params[0], USER_LEN, username);
+		ret_val = SendMsg(socket, CLIENT_REQUEST, send_params);
+		IS_FAIL(ret_val);
+		//free(&recieve_params); and set to null
 		break;
 
+	case SERVER_APPROVED:
+		break;
 	case SERVER_MAIN_MENU:
 		//main menue
 		break;

@@ -9,10 +9,11 @@
 #include "SocketShared.h"
 #include "SocketSendRecvTools.h"
 #include "server_main_header.h"
+#include "message.h"
 /*-------------Define Varibles--------*/
 #define NUM_OF_WORKER_THREADS 2
-
-#define MAX_LOOPS 3
+#define MAX_LOOPS 1
+#define USER_LEN 20
 
 #define SEND_STR_SIZE 100
 HANDLE event_thread[NUM_OF_WORKER_THREADS];
@@ -31,6 +32,8 @@ BOOL file_handle(char* user_name, int Ind);
 static DWORD ServiceThread(LPVOID lpParam);
 BOOL create_mutexs_and_events();
 BOOL game_session(int Ind, char* message_to_file, char** message_from_file);
+
+
 
 
 int main() {
@@ -126,7 +129,7 @@ int main() {
             printf("creating thread\n");
             Create_Thread_data(&AcceptSocket, Ind,&ptr_to_thread);
             CreateThreadSimple((LPTHREAD_START_ROUTINE)ServiceThread, ptr_to_thread, ThreadHandles+Ind);
-           //ThreadInputs[Ind] = AcceptSocket; // shallow copy: don't close 
+            ThreadInputs[Ind] = AcceptSocket; // shallow copy: don't close 
                                               // AcceptSocket, instead close 
                                               // ThreadInputs[Ind] when the
                                               // time comes.
@@ -220,39 +223,82 @@ static DWORD ServiceThread(LPVOID lpParam) {
     int oppsite_ind = other_thread_ind(Ind, user_title, user_opposite_title);
     char initial_number[4];
     char* AcceptedStr = NULL;
-    printf("before recieving \n");
-    RecvRes = ReceiveString(&AcceptedStr, *t_socket);
+    char user_name[USER_LEN];
+    int state = CLIENT_REQUEST;
 
-    if (!check_recv(RecvRes)) {
-        printf("recieve string failed\n");
-        return FALSE;
-    }
-    else {
-        printf("recieve string succeed: %s", AcceptedStr);
-    }
-    char user_name[20];
-
-    //get user name from client
-    if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_REQUEST")) {
-        printf("client request\n");
-        int indexes[1];
-        int lens[1];
-        get_param_index_and_len(&indexes, &lens, AcceptedStr, strlen(AcceptedStr));
-        strncpy_s(user_name, lens[0], *(AcceptedStr + indexes[0]), strlen(user_name));//get user name
-        strcpy_s(SendStr, strlen("SERVER_APPROVED"), "SERVER_APPROVED");
-        SendRes = SendString(SendStr, *t_socket);//send SERVER_APPROVED to client
-        if (!check_send(SendRes)) {
-            printf("send string failed\n");
+    int message_type = 0;
+    char** params = NULL;
+    int k = 0;
+    while (k < 2) {
+        RecvRes = RecieveMsg(*t_socket, &message_type, &params);
+        if (!check_recv(RecvRes)) {
+            printf("recieve string failed\n");
             return FALSE;
         }
-        else {
-            printf("send string succeed\n");
+        switch (message_type)
+        {
+        case CLIENT_REQUEST://get user name from client
+            strcpy_s(user_name, USER_LEN, params[0]);
+            SendRes = SendMsg(*t_socket, SERVER_APPROVED, NULL);
+            IS_FAIL(SendRes);
+            SendRes = SendMsg(*t_socket, SERVER_MAIN_MENU, NULL);
+            IS_FAIL(SendRes);
+
+            //free params and set to NULL
+            break;
+
+        case SERVER_MAIN_MENU:
+
+        default:
+            break;
         }
-        strcpy_s(SendStr, strlen("SERVER_MAIN_MENU"), "SERVER_MAIN_MENU");// send main menu  to client
-        SendRes = SendString(SendStr, *t_socket);
-        if (!check_send(SendRes)) return FALSE;
-        
+
+        k++;
     }
+    return 0;//end daniela debug
+
+    //free(&params)***need to make function!
+    //RecvRes = ReceiveString(&AcceptedStr, *t_socket);
+
+
+    //else {
+    //    printf("recieve string succeed: %s", AcceptedStr);
+    //}
+    
+
+    ////get user name from client
+    //if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_REQUEST")) {
+    //    printf("client request\n");
+
+    //    //get_param_index_and_len(&indexes, &lens, AcceptedStr, strlen(AcceptedStr));
+    //    //printf("get params succeed\n");
+    //    strncpy_s(user_name, strlen(params[0]), params[0], strlen(user_name));//get user name
+    //    //strcpy_s(SendStr, strlen("SERVER_APPROVED"), "SERVER_APPROVED");
+    //    //printf("sending string: %s", SendStr);
+
+    //    SendRes = SendMsg(*t_socket, SERVER_APPROVED, NULL);
+
+    //    //SendRes = SendString(SendStr, *t_socket);//send SERVER_APPROVED to client
+    //    if (!check_send(SendRes)) {
+    //        printf("send string failed\n");
+    //        return FALSE;
+    //    }
+    //    else {
+    //        printf("send string succeed\n");
+    //    }
+    //    return 0;
+    //    strcpy_s(SendStr, strlen("SERVER_MAIN_MENU"), "SERVER_MAIN_MENU");// send main menu  to client
+    //    SendRes = SendString(SendStr, *t_socket);
+    //    if (!check_send(SendRes)) return FALSE;
+    //    
+    //}
+    
+    //danielas code
+    //strncpy_s(user_name, strlen(params[0]), params[0], strlen(user_name));//get user name
+
+    return 0;
+
+    //end daniela code
 
     //wait for answer from client for menue
     RecvRes = ReceiveString(&AcceptedStr, *t_socket);
