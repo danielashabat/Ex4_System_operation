@@ -415,15 +415,17 @@ int other_thread_ind(int Ind,char** user_name, char** oppsite_user_name) {
 }
 
 
-BOOL game_session(int Ind , char* message_to_file, char** message_from_file, BOOL users_name_flag) {
+BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL users_name_flag, int offset_first, int* offset_end) {
 
     DWORD wait_code;
     BOOL bErrorFlag = FALSE;
     DWORD lpNumberOfBytesWritten;
     BOOL ret_val;
     DWORD dwWaitResultOtherClient;
+    char string_from_file[50];
     char user_title[5];
     char user_opposite_title[5];
+    char* user_opposite_pointer;
     int oppsite_ind = other_thread_ind(Ind, &user_title, &user_opposite_title);
     wait_code = WaitForSingleObject(file_mutex, INFINITE);
     if (WAIT_OBJECT_0 != wait_code)
@@ -443,25 +445,60 @@ BOOL game_session(int Ind , char* message_to_file, char** message_from_file, BOO
         printf("-ERROR: %d - release semaphore failed !\n", GetLastError());
         return FALSE;
     }
-    return TRUE;
-
+    
+    //Wait for the second thread to write
     dwWaitResultOtherClient = WaitForSingleObject(
     event_thread[oppsite_ind], // event handle
     INFINITE);    // indefinite wait
-
+    offset_end = GetFileSize(file, NULL);
     if (dwWaitResultOtherClient != WAIT_OBJECT_0) {
         printf("Wait error (%d)\n", GetLastError());
         return FALSE;
     }
-    
+    //in your turn read the other user play 
     wait_code = WaitForSingleObject(file_mutex, INFINITE);
     if (WAIT_OBJECT_0 != wait_code)
     {
         printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
         return FALSE;
     }
-    if (users_name_flag) {
-        SetFilePointer(file, 0, NULL, FILE_BEGIN);
-        
+    read_from_pointer_in_file(offset_first, string_from_file);
+    user_opposite_pointer = strstr(string_from_file, user_opposite_title);
+    int indexes[1];
+    int lens[1];
+    get_param_index_and_len(&indexes, &lens, user_opposite_pointer, 5);
+    strncpy_s(message_from_file, lens[0], user_opposite_pointer, len(user_opposite_pointer));
+    ret_val = ReleaseMutex(file_mutex);
+    if (FALSE == ret_val)
+    {
+        printf("-ERROR: %d - release mutex failed !\n", GetLastError());
+        return FALSE;
     }
+
 }
+
+
+
+
+
+BOOL read_from_pointer_in_file(int offset, char* buffer) {
+
+   
+    DWORD nBytesToRead;
+    DWORD dwBytesRead;
+    BOOL bResult = FALSE;
+    int dw_pointer;
+    DWORD end_of_file_offset;
+
+    
+    dw_pointer = SetFilePointer(file, offset, NULL, FILE_BEGIN);//set poniter to offset
+    end_of_file_offset = GetFileSize(file,NULL);
+    nBytesToRead = end_of_file_offset - offset;
+    bResult = ReadFile(file, buffer, nBytesToRead, &dwBytesRead, NULL);
+    if (!bResult) {
+        return FALSE;
+    }
+    printf("READ from tasks file success!");
+    return TRUE;
+}
+
