@@ -35,6 +35,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\share\message.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="..\share\SocketSendRecvTools.h">
       <Filter>Shared header file</Filter>
     </ClInclude>

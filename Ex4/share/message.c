@@ -32,7 +32,7 @@ DWORD SendMsg(SOCKET socket, int message_type, char *params[]) {
 		return 0x555;
 	}
 	else {
-		printf("sent to server SUCCEED!\n");
+		printf("-client info- succeed sent messeage: %s ",msg);
 		return 0;
 	}
 }
