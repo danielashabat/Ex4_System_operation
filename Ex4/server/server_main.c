@@ -218,8 +218,12 @@ static DWORD ServiceThread(LPVOID lpParam) {
     int oppsite_ind = other_thread_ind(Ind, &user_title, &user_opposite_title);
     char initial_number[4];
     char* AcceptedStr = NULL;
+
+
+
+
     RecvRes = ReceiveString(&AcceptedStr, *t_socket);
-    if (!check_recv(RecvRes)) return FALSE;
+    if (!check_recv) return FALSE;
     char user_name[20];
 
     //get user name from client
@@ -256,8 +260,8 @@ static DWORD ServiceThread(LPVOID lpParam) {
             return FALSE;
         }
         //first  send user name 
-        char message_to_file[25];
-        char oppsite_user_name[25];
+        char message_to_file[27];
+        char oppsite_user_name[27];
         int offest_end_file = 0 ;
         strcpy_s(message_to_file,25, user_title);
 
