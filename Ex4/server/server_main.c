@@ -224,13 +224,14 @@ static DWORD ServiceThread(LPVOID lpParam) {
     char initial_number[4];
     char* AcceptedStr = NULL;
     char user_name[USER_LEN];
-    int state = CLIENT_REQUEST;
 
-    int message_type = 0;
-    char** params = NULL;
+    int message_type = CLIENT_REQUEST;
+    char* send_params[MAX_PARAMS] = { NULL };
+    char* recieve_params[MAX_PARAMS] = { NULL };
     int k = 0;
+
     while (k < 2) {
-        RecvRes = RecieveMsg(*t_socket, &message_type, &params);
+        RecvRes = RecieveMsg(*t_socket, &message_type, recieve_params);
         if (!check_recv(RecvRes)) {
             printf("recieve string failed\n");
             return FALSE;
@@ -238,13 +239,11 @@ static DWORD ServiceThread(LPVOID lpParam) {
         switch (message_type)
         {
         case CLIENT_REQUEST://get user name from client
-            strcpy_s(user_name, USER_LEN, params[0]);
+            strcpy_s(user_name, USER_LEN, recieve_params[0]);
             SendRes = SendMsg(*t_socket, SERVER_APPROVED, NULL);
             IS_FAIL(SendRes);
             SendRes = SendMsg(*t_socket, SERVER_MAIN_MENU, NULL);
             IS_FAIL(SendRes);
-
-            //free params and set to NULL
             break;
 
         case SERVER_MAIN_MENU:
@@ -254,6 +253,7 @@ static DWORD ServiceThread(LPVOID lpParam) {
         }
 
         k++;
+        free_params(recieve_params);
     }
     return 0;//end daniela debug
 

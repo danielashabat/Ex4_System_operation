@@ -13,17 +13,19 @@
 #include "SocketSendRecvTools.h"
 
 // Macros --------------------------------------------------------------------
-#define IS_FAIL(RESULT) if (RESULT == TRNS_FAILED)\
+#define IS_FAIL(RESULT) if (RESULT != TRNS_SUCCEEDED)\
 {\
     printf("function:[%s line:%d] fail\n", __func__,__LINE__);\
     return FALSE;\
 }
 typedef enum { CLIENT_REQUEST,CLIENT_VERSUS,CLIENT_SETUP,CLIENT_PLAYER_MOVE,CLIENT_DISCONNECT,SERVER_MAIN_MENU, SERVER_APPROVED,SERVER_DENIED,} message_type;
 #define MSG_LEN 100//ask anat for the right length
+#define MAX_PARAMS 4
 // Function Declarations -------------------------------------------------------
 
 DWORD SendMsg(SOCKET socket, int message_type, char* params[]);
 
+void free_params(char** params);
 /**
  * ReceiveMsg() recievs message from the server and divide the message to message type and parametrs
  *
@@ -40,7 +42,7 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]);
  * TRNS_DISCONNECTED - if the socket was disconnected
  * TRNS_FAILED - otherwise
  */
-DWORD RecieveMsg(SOCKET socket, int* message_type, char*** params);
+DWORD RecieveMsg(SOCKET socket, int* message_type, char** params);
 
 /*copy_param_from_message
 * dest - pointer to the destination of the string

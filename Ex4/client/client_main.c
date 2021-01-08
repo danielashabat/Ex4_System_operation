@@ -12,7 +12,7 @@ Description –  this file implement the client main
 
 
 #define USER_LEN 20
-#define MAX_PARAMS 4
+
 
 
 
@@ -24,7 +24,7 @@ int main() {
 	//printf("%s\n", params[1]);
 	//return;
 
-	char username[USER_LEN] = "daniela";
+
 
 	//DANIELA BEGIN
 	SOCKET client_socket;
@@ -65,34 +65,39 @@ int main() {
 		WSACleanup();
 		return;
 	}
+	char username[USER_LEN] = "daniela";
 	int message_type = 0;
-	char* send_params[MAX_PARAMS];
-	char** recieve_params = NULL;
+	char* send_params[MAX_PARAMS] = { NULL };
+	char* recieve_params[MAX_PARAMS] = { NULL };
 	DWORD ret_val = 0;
+	int k = 0;
 
+	while (k < 2) {
 
-	//while true
-	ret_val = RecieveMsg(socket, &message_type, &recieve_params);//recieve server respond
-	IS_FAIL(ret_val);
-	switch (message_type) {
-	case CLIENT_REQUEST:
-		strcpy_s(send_params[0], USER_LEN, username);
-		ret_val = SendMsg(socket, CLIENT_REQUEST, send_params);
+		switch (message_type) {
+		case CLIENT_REQUEST:
+			send_params[0] = (char*)malloc(sizeof(char) * USER_LEN);
+			if (send_params[0] != NULL)
+			strcpy_s(send_params[0], USER_LEN, username);
+			ret_val = SendMsg(client_socket, CLIENT_REQUEST, send_params);
+			IS_FAIL(ret_val);
+			break;
+
+		case SERVER_APPROVED:
+			break;
+		case SERVER_MAIN_MENU:
+			//main menue
+			break;
+
+		case END_PROGRAM:
+			break;
+
+		}
+		ret_val = RecieveMsg(client_socket, &message_type, recieve_params);//recieve server respond
 		IS_FAIL(ret_val);
-		//free(&recieve_params); and set to null
-		break;
-
-	case SERVER_APPROVED:
-		break;
-	case SERVER_MAIN_MENU:
-		//main menue
-		break;
-
-	case END_PROGRAM:
-		break;
-
+		free_params(recieve_params);
+		k++;
 	}
-
 
 
 

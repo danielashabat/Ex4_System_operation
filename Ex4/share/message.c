@@ -15,6 +15,8 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 	char msg[MSG_LEN];
 	//messages send in this frame: "<message_type>:<param_list>\n"
 
+	printf("message_type:%d\n", message_type);
+
 	switch (message_type)
 	{
 
@@ -29,6 +31,10 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 
 	case SERVER_DENIED:
 		sprintf_s(msg, MSG_LEN, "SERVER_DENIED:%s\n", params[0]);
+		break;
+
+	case SERVER_MAIN_MENU:
+		sprintf_s(msg, MSG_LEN, "SERVER_MAIN_MENU\n");
 		break;
 
 	default:
@@ -47,24 +53,19 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 	}
 	else {
 		printf("-client info- succeed sent messeage: %s ", msg);
-		return 0;
+		return TRNS_SUCCEEDED;
 	}
 }
 
 
 //typedef enum { CLIENT_REQUEST,CLIENT_VERSUS,CLIENT_SETUP,CLIENT_PLAYER_MOVE,CLIENT_DISCONNECT,SERVER_MAIN_MENU, SERVER_APPROVED,SERVER_DENIED,} message_type;
-DWORD RecieveMsg(SOCKET socket, int *message_type, char ***params) {
+DWORD RecieveMsg(SOCKET socket, int *message_type, char ** params) {
 	char* AcceptedStr = NULL;
 	TransferResult_t RecvRes;
 	int inputs = 0;
 	int* indexes = NULL;
 	int *lens = NULL;
 	int i = 0;
-
-	if ((*params) != NULL) {
-		printf("ERROR: (*params) need to be intialized to NULL!\n");
-		return TRNS_FAILED;
-	}
 
 	RecvRes = ReceiveString(&AcceptedStr, socket);
 	
@@ -102,17 +103,23 @@ DWORD RecieveMsg(SOCKET socket, int *message_type, char ***params) {
 	//if paramters sent in the msg, allocate it in params
 	if (inputs > 0) {
 		printf("inputs is: %d\n",inputs);
-		//create array of strings
-		(*params) = (char**)malloc(inputs * sizeof(char*));
-		if (*params == NULL) { printf("ERROR: Allocation failed\n"); return TRNS_FAILED; }
-		get_params(AcceptedStr,inputs,*params);
-		printf("param[0]= %s\n", *params[0]);
+		get_params(AcceptedStr,inputs,params);
+		printf("param[0]= %s\n",params[0]);
 		
 	}
 
 	free(AcceptedStr);
 	return TRNS_SUCCEEDED;
 
+}
+
+void free_params(char** params) {
+	for (int i = 0; i < MAX_PARAMS; i++) {
+		if (params[i] != NULL) {
+			free(params[i]);
+			params[i]=NULL;
+		}
+	}
 }
 /*
 * dest - pointer to the destination of the string
