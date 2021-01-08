@@ -219,7 +219,7 @@ static DWORD ServiceThread(LPVOID lpParam) {
     char initial_number[4];
     char* AcceptedStr = NULL;
     RecvRes = ReceiveString(&AcceptedStr, *t_socket);
-    if (!check_recv) return FALSE;
+    if (!check_recv(RecvRes)) return FALSE;
     char user_name[20];
 
     //get user name from client

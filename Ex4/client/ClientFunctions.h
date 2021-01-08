@@ -13,9 +13,11 @@
 #include "SocketSendRecvTools.h"
 
 // Macros --------------------------------------------------------------------
-
+#define END_PROGRAM 16
 
 // Function Declarations -------------------------------------------------------
 
 DWORD SendExample(SOCKET socket, char string[]);
+
+DWORD client_request(SOCKET socket, char* username, int* new_state);
 #endif // CLIENT_FUNCTIONS_H
