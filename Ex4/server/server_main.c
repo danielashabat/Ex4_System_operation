@@ -110,17 +110,6 @@ int main() {
 
         printf("Client Connected.\n");
 
-        //daniela debug
-        TransferResult_t RecvRes;
-        char* AcceptedStr = NULL;
-        RecvRes = ReceiveString(&AcceptedStr, AcceptSocket);
-        if (RecvRes == TRNS_SUCCEEDED) {
-            printf("recieve succeed see msg:%s", AcceptedStr);
-            return 0;
-        }
-        printf("recieve failed!");
-        return 1;
-        //end debug
         
 
         Ind = FindFirstUnusedThreadSlot();
