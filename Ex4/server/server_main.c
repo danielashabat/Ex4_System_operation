@@ -212,7 +212,11 @@ static DWORD ServiceThread(LPVOID lpParam) {
     DWORD dwWaitResultFile;
     t_socket = p_params->p_socket;
     Ind = p_params->thread_number;
-
+    char user_title[5];
+    char user_opposite_title[5];
+    char* user_opposite_pointer;
+    int oppsite_ind = other_thread_ind(Ind, &user_title, &user_opposite_title);
+    char initial_number[4];
     char* AcceptedStr = NULL;
     RecvRes = ReceiveString(&AcceptedStr, *t_socket);
     if (!check_recv) return FALSE;
@@ -226,31 +230,79 @@ static DWORD ServiceThread(LPVOID lpParam) {
         strncpy_s(user_name, lens[0], *(AcceptedStr + indexes[0]), strlen(user_name));//get user name
         strcpy_s(SendStr, strlen("SERVER_APPROVED"), "SERVER_APPROVED");
         SendRes = SendString(SendStr, *t_socket);//send SERVER_APPROVED to client
-        if (!check_send) return FALSE;
+        if (!check_send(SendRes)) return FALSE;
         strcpy_s(SendStr, strlen("SERVER_MAIN_MENU"), "SERVER_MAIN_MENU");// send main menu  to client
         SendRes = SendString(SendStr, *t_socket);
-        if (!check_send) return FALSE;
+        if (!check_send(SendRes)) return FALSE;
         
     }
 
     //wait for answer from client for menue
-    //RecvRes = ReceiveString(&AcceptedStr, *t_socket);
-    //if (!check_recv) return FALSE;
-    //if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_DISCONNECT")) {
-    //    Done == TRUE;
-    //    
-    //}
+    RecvRes = ReceiveString(&AcceptedStr, *t_socket);
+    if (!check_recv(RecvRes)) return FALSE;
+    if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_DISCONNECT")) {
+        Done == TRUE;///TODO : need to close thread##########!!!!!!!!
+        
+    }
+    else if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_VERSUS")) {
+        retval = file_handle(&user_name, Ind);
 
-    //retval = file_handle(&user_name, Ind);
+        dwWaitResultFile = WaitForSingleObject(
+            event_file, // event handle
+            INFINITE);    // indefinite wait
+
+        if (dwWaitResultFile != WAIT_OBJECT_0) {
+            printf("Wait error (%d)\n", GetLastError());
+            return FALSE;
+        }
+        //first  send user name 
+        char message_to_file[25];
+        char oppsite_user_name[25];
+        int offest_end_file = 0 ;
+        strcpy_s(message_to_file,25, user_title);
+
+        strcat_s(message_to_file, 25, user_name);
+        game_session(Ind, message_to_file, oppsite_user_name, TRUE ,offest_end_file, &offest_end_file, user_title, user_opposite_title, oppsite_ind);
+        ResetEvent(event_thread[Ind]);
+
+        sprintf_s(SendStr, SEND_STR_SIZE, "SERVER_INVITE:%s\n", oppsite_user_name);
+        SendRes = SendString(SendStr, *t_socket);
+
+        ///get initial number
+        RecvRes = ReceiveString(&AcceptedStr, *t_socket);
+        if (check_if_message_type_instr_message(AcceptedStr,"CLIENT_SETUP")) {
+            int indexes[1];
+            int lens[1];
+            get_param_index_and_len(&indexes, &lens, AcceptedStr, strlen(AcceptedStr));
+            strncpy_s(initial_number, lens[0], *(AcceptedStr + indexes[0]), strlen(initial_number));
+        }
+
+
+        
+        //a
+        //game session
+        //Until some one wins
+        //recive the number to guess 
+        while (!Done) {
+            char your_guess[4];
+            char oppsite_guess[4];
+            strcpy_s(SendStr, strlen("SERVER_PLAYER_MOVE_REQUEST"), "SERVER_PLAYER_MOVE_REQUEST");// ask for guess
+            SendRes = SendString(SendStr, *t_socket);
+            RecvRes = ReceiveString(&AcceptedStr, *t_socket);
+            if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_PLAYER_MOVE")) {
+                int indexes[1];
+                int lens[1];
+                get_param_index_and_len(&indexes, &lens, AcceptedStr, strlen(AcceptedStr));
+                strncpy_s(your_guess, lens[0], *(AcceptedStr + indexes[0]), strlen(your_guess));
+            }
+            game_session(Ind, message_to_file, oppsite_user_name, TRUE, offest_end_file, &offest_end_file, user_title, user_opposite_title, oppsite_ind);
+
+        }
+
+
+
+    }
     
-   // dwWaitResultFile = WaitForSingleObject(
-       // event_file, // event handle
-       // INFINITE);    // indefinite wait
-
-    //if (dwWaitResultFile != WAIT_OBJECT_0) {
-      //  printf("Wait error (%d)\n", GetLastError());
-      //  return FALSE;
-   // }
 
   
     
@@ -402,20 +454,20 @@ BOOL file_handle(char* user_name, int Ind) {
 int other_thread_ind(int Ind,char** user_name, char** oppsite_user_name) {
 
     if (Ind == 0) {
-        strcpy_s(*user_name, 5, "user0");
-        strcpy_s(*oppsite_user_name, 5, "user1");
+        strcpy_s(*user_name, 5, "user0:");
+        strcpy_s(*oppsite_user_name, 5, "user1:");
         return 1;
     }
     if (Ind == 1) {
-        strcpy_s(*user_name, 5, "user1");
-        strcpy_s(*oppsite_user_name, 5, "user0");
+        strcpy_s(*user_name, 5, "user1:");
+        strcpy_s(*oppsite_user_name, 5, "user0:");
         
         return 0;
     }
 }
 
 
-BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL users_name_flag, int offset_first, int* offset_end) {
+BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL users_name_flag, int offset_first, int* offset_end ,char* user_title, char* user_opposite_title , int oppsite_ind) {
 
     DWORD wait_code;
     BOOL bErrorFlag = FALSE;
@@ -423,10 +475,8 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
     BOOL ret_val;
     DWORD dwWaitResultOtherClient;
     char string_from_file[50];
-    char user_title[5];
-    char user_opposite_title[5];
     char* user_opposite_pointer;
-    int oppsite_ind = other_thread_ind(Ind, &user_title, &user_opposite_title);
+    
     wait_code = WaitForSingleObject(file_mutex, INFINITE);
     if (WAIT_OBJECT_0 != wait_code)
     {
@@ -462,12 +512,15 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
         printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
         return FALSE;
     }
-    read_from_pointer_in_file(offset_first, string_from_file);
-    user_opposite_pointer = strstr(string_from_file, user_opposite_title);
-    int indexes[1];
-    int lens[1];
-    get_param_index_and_len(&indexes, &lens, user_opposite_pointer, 5);
-    strncpy_s(message_from_file, lens[0], user_opposite_pointer, len(user_opposite_pointer));
+    ret_val = read_from_pointer_in_file(offset_first, string_from_file);
+    if (ret_val) {
+        user_opposite_pointer = strstr(string_from_file, user_opposite_title);
+        int indexes[1];
+        int lens[1];
+        get_param_index_and_len(&indexes, &lens, user_opposite_pointer, 5);
+        strncpy_s(message_from_file, lens[0], user_opposite_pointer, len(user_opposite_pointer));
+    }
+   
     ret_val = ReleaseMutex(file_mutex);
     if (FALSE == ret_val)
     {
