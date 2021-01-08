@@ -85,6 +85,7 @@ int main() {
 
     // Listen on the Socket.
     ListenRes = listen(MainSocket, SOMAXCONN);
+    printf("waiting for clients to connect\n");
     if (ListenRes == SOCKET_ERROR)
     {
         printf("Failed listening on socket, error %ld.\n", WSAGetLastError());
@@ -108,6 +109,8 @@ int main() {
         }
 
         printf("Client Connected.\n");
+
+        
 
         Ind = FindFirstUnusedThreadSlot();
 
@@ -214,25 +217,29 @@ static DWORD ServiceThread(LPVOID lpParam) {
     RecvRes = ReceiveString(&AcceptedStr, *t_socket);
     if (!check_recv) return FALSE;
     char user_name[20];
+
+    //get user name from client
     if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_REQUEST")) {
         int indexes[1];
         int lens[1];
         get_param_index_and_len(&indexes, &lens, AcceptedStr, strlen(AcceptedStr));
-        strncpy_s(user_name, lens[0], *(AcceptedStr + indexes[0]), strlen(user_name));
+        strncpy_s(user_name, lens[0], *(AcceptedStr + indexes[0]), strlen(user_name));//get user name
         strcpy_s(SendStr, strlen("SERVER_APPROVED"), "SERVER_APPROVED");
-        SendRes = SendString(SendStr, *t_socket);
+        SendRes = SendString(SendStr, *t_socket);//send SERVER_APPROVED to client
         if (!check_send) return FALSE;
-        strcpy_s(SendStr, strlen("SERVER_MAIN_MENU"), "SERVER_MAIN_MENU");
+        strcpy_s(SendStr, strlen("SERVER_MAIN_MENU"), "SERVER_MAIN_MENU");// send main menu  to client
         SendRes = SendString(SendStr, *t_socket);
         if (!check_send) return FALSE;
         
     }
-    RecvRes = ReceiveString(&AcceptedStr, *t_socket);
-    if (!check_recv) return FALSE;
-    if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_DISCONNECT")) {
-        Done == TRUE;
-        
-    }
+
+    //wait for answer from client for menue
+    //RecvRes = ReceiveString(&AcceptedStr, *t_socket);
+    //if (!check_recv) return FALSE;
+    //if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_DISCONNECT")) {
+    //    Done == TRUE;
+    //    
+    //}
 
     //retval = file_handle(&user_name, Ind);
     
