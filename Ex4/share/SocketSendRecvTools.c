@@ -194,7 +194,7 @@ TransferResult_t ReceiveString( char** OutputStrPtr, SOCKET sd )
 	return RecvRes;
 }
 
-BOOL check_recv(char* RecvRes) {
+BOOL check_recv(TransferResult_t RecvRes) {
 	if (RecvRes == TRNS_FAILED)
 	{
 		printf("Service socket error while reading, closing thread.\n");
@@ -212,7 +212,7 @@ BOOL check_recv(char* RecvRes) {
 
 }
 
-BOOL check_send(char* SendRes) {
+BOOL check_send(TransferResult_t SendRes) {
 	if (SendRes == TRNS_FAILED)
 	{
 		printf("Service socket error while writing, closing thread.\n");
