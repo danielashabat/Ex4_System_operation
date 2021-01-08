@@ -518,7 +518,7 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
         int indexes[1];
         int lens[1];
         get_param_index_and_len(&indexes, &lens, user_opposite_pointer, 5);
-        strncpy_s(message_from_file, lens[0], user_opposite_pointer, len(user_opposite_pointer));
+        strncpy_s(message_from_file, lens[0], user_opposite_pointer, strlen(user_opposite_pointer));
     }
    
     ret_val = ReleaseMutex(file_mutex);
