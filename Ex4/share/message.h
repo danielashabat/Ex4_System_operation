@@ -13,10 +13,10 @@
 #include "SocketSendRecvTools.h"
 
 // Macros --------------------------------------------------------------------
-#define IS_FAIL(RESULT) if (RESULT != TRNS_SUCCEEDED)\
+#define IS_FAIL(RESULT,MSG) if (RESULT != TRNS_SUCCEEDED)\
 {\
-    printf("function:[%s line:%d] fail\n", __func__,__LINE__);\
-    return FALSE;\
+    printf("function:[%s line:%d] %s\n", __func__,__LINE__,MSG);\
+    return RESULT;\
 }
 
 #define DEBUG(MSG) printf("function:[%s line:%d] %s\n", __func__, __LINE__,MSG)

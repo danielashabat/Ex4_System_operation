@@ -52,17 +52,9 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 	}
 	//send message
 	SendRes = SendString(msg, socket);
-
-	//check if failed
-	if (SendRes == TRNS_FAILED)
-	{
-		printf("Socket error while trying to write data to socket\n");
-		return 0x555;
-	}
-	else {
-		printf("-client info- succeed sent messeage: %s ", msg);
-		return TRNS_SUCCEEDED;
-	}
+	IS_FAIL(SendRes, "Socket error while trying to write data to socket\n");
+	printf("-client info- succeed sent messeage: %s ", msg);
+	return TRNS_SUCCEEDED;
 }
 
 
@@ -78,13 +70,8 @@ DWORD RecieveMsg(SOCKET socket, int *message_type, char ** params) {
 	RecvRes = ReceiveString(&AcceptedStr, socket);
 	
 	//recieve the message
-	if (TRNS_SUCCEEDED == RecvRes) {
-		printf("RecieveString from server succeed the message is: %s", AcceptedStr);
-	}
-	else {
-		printf("RecieveString from server failed\n");
-		return RecvRes;
-	}
+	IS_FAIL(RecvRes, "RecieveString from server failed\n");
+	printf("RecieveString from server succeed the message is: %s", AcceptedStr);
 
 	//find the message type
 	if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_REQUEST")) {
@@ -110,8 +97,7 @@ DWORD RecieveMsg(SOCKET socket, int *message_type, char ** params) {
 		*message_type = CLIENT_DISCONNECT;
 	}
 	else {
-		DEBUG("ERROR: message type is invalid");
-		return TRNS_FAILED;
+		IS_FAIL(TRNS_FAILED, "ERROR: message type is invalid\n")
 	}
 
 	//if paramters sent in the msg, allocate it in params

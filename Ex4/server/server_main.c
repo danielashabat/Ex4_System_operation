@@ -241,9 +241,9 @@ static DWORD ServiceThread(LPVOID lpParam) {
         case CLIENT_REQUEST://get user name from client
             strcpy_s(user_name, USER_LEN, recieve_params[0]);
             SendRes = SendMsg(*t_socket, SERVER_APPROVED, NULL);
-            IS_FAIL(SendRes);
+            IS_FAIL(SendRes,"SendMsg Failed\n");
             SendRes = SendMsg(*t_socket, SERVER_MAIN_MENU, NULL);
-            IS_FAIL(SendRes);
+            IS_FAIL(SendRes, "SendMsg Failed\n");
             break;
 
         case CLIENT_VERSUS:

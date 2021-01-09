@@ -9,6 +9,7 @@ Description –  this file implement the client main
 // Includes --------------------------------------------------------------------
 #include "message.h"
 #include "ClientFunctions.h"
+#include "client_main.h"
 
 
 #define USER_LEN 20
@@ -17,24 +18,29 @@ Description –  this file implement the client main
 
 
 int main() {
-	//char msg[] = "client:daniela;or";
-	//char *params[2];
-	//get_params(msg,2,params);
-	//printf("%s\n", params[0]);
-	//printf("%s\n", params[1]);
-	//return;
+	char username[] = "daniela";
+	char IP[] = SERVER_ADDRESS_STR;
+	int port = SERVER_PORT;
+	int status = 0;
 
 
+	do {
+		 status=client(IP, port, username);
+	} while (status != TRNS_SUCCEEDED);
 
-	//DANIELA BEGIN
+	return 0;
+}
+
+int client(char  IP[10], int port, char  username[])
+{
 	SOCKET client_socket;
 	SOCKADDR_IN clientService;
 
 	// Initialize Winsock.
 	WSADATA wsaData; //Create a WSADATA object called wsaData.
-	//The WSADATA structure contains information about the Windows Sockets implementation.
+					 //The WSADATA structure contains information about the Windows Sockets implementation.
 
-	//Call WSAStartup and check for errors.
+					 //Call WSAStartup and check for errors.
 	int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if (iResult != NO_ERROR)
 		printf("Error at WSAStartup()\n");
@@ -45,57 +51,64 @@ int main() {
 	if (client_socket == INVALID_SOCKET) {
 		printf("Error at socket(): %ld\n", WSAGetLastError());
 		WSACleanup();
-		return;
+		return TRNS_FAILED;
 	}
 
 
 	//Create a sockaddr_in object clientService and set  values.
 	clientService.sin_family = AF_INET;
-	clientService.sin_addr.s_addr = inet_addr(SERVER_ADDRESS_STR); //Setting the IP address to connect to
-	clientService.sin_port = htons(SERVER_PORT); //Setting the port to connect to.
+	clientService.sin_addr.s_addr = inet_addr(IP); //Setting the IP address to connect to
+	clientService.sin_port = htons(port); //Setting the port to connect to.
 
-	/*
-		AF_INET is the Internet address family.
-	*/
-	// Call the connect function, passing the created socket and the sockaddr_in structure as parameters. 
-// Check for general errors.
-	if (connect(client_socket, (SOCKADDR*)&clientService, sizeof(clientService)) == SOCKET_ERROR) {
-		printf("Failed to connect.\n");
-		closesocket(client_socket);
-		WSACleanup();
-		return;
+										  /*
+										  AF_INET is the Internet address family.
+										  */
+										  // Call the connect function, passing the created socket and the sockaddr_in structure as parameters. 
+										  // Check for general errors.
+
+	while (SOCKET_ERROR == connect(client_socket, (SOCKADDR*)&clientService, sizeof(clientService))) {
+		int user_chose = print_reconnect_menu(IP, port);
+		if (user_chose == 2) {//user chose exit 
+			closesocket(client_socket);
+			WSACleanup();
+			return TRNS_SUCCEEDED;
+		}
+		else//user chose to reconnect
+			continue;
 	}
-	char username[] = "daniela";
+
+	printf("Connected to server on %s:%d\n", IP, port);
+
 	int message_type = 0;
 	char* send_params[MAX_PARAMS] = { NULL };
 	char* recieve_params[MAX_PARAMS] = { NULL };
 	DWORD ret_val = 0;
 	int k = 0;
 
-	while (message_type!= CLIENT_DISCONNECT) {
+	while (message_type != CLIENT_DISCONNECT) {
 
 		switch (message_type) {
 		case CLIENT_REQUEST:
 			send_params[0] = (char*)malloc(sizeof(char) * USER_LEN);
 			if (send_params[0] != NULL)
-			strcpy_s(send_params[0], USER_LEN, username);
+				strcpy_s(send_params[0], USER_LEN, username);
 			ret_val = SendMsg(client_socket, CLIENT_REQUEST, send_params);
-			IS_FAIL(ret_val);
+			IS_FAIL(ret_val,"SendMsg Failed\n");
 			break;
 
 		case SERVER_APPROVED:
 			break;
 		case SERVER_MAIN_MENU:
 			print_main_menu();
-			int user_chose; 
+			int user_chose;
 			scanf_s("%d", &user_chose);
 			if (user_chose == 1) {
 				ret_val = SendMsg(client_socket, CLIENT_VERSUS, NULL);
-				IS_FAIL(ret_val);
+				IS_FAIL(ret_val, "SendMsg Failed\n");
 			}
-			if (user_chose ==2) {
+			if (user_chose == 2) {
 				ret_val = SendMsg(client_socket, CLIENT_DISCONNECT, NULL);
-				IS_FAIL(ret_val);
+				IS_FAIL(ret_val, "SendMsg Failed\n");
 				message_type = CLIENT_DISCONNECT;
 				continue;
 			}
@@ -105,7 +118,7 @@ int main() {
 		}
 		free_params(recieve_params);
 		ret_val = RecieveMsg(client_socket, &message_type, recieve_params);//recieve server respond
-		IS_FAIL(ret_val);
+		IS_FAIL(ret_val, "RecieveMsg Failed\n");
 
 	}
 
@@ -115,8 +128,9 @@ int main() {
 
 	WSACleanup();
 
-	return 0;
-	//DANIELA END
+	return TRNS_SUCCEEDED;
 }
+
+
 
 

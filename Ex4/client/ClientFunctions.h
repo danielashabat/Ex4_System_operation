@@ -17,7 +17,6 @@
 
 // Function Declarations -------------------------------------------------------
 
-
 void print_main_menu();
-
+int print_reconnect_menu(char  IP[], int port);
 #endif // CLIENT_FUNCTIONS_H
