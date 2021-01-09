@@ -37,6 +37,14 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 		sprintf_s(msg, MSG_LEN, "SERVER_MAIN_MENU\n");
 		break;
 
+	case CLIENT_VERSUS:
+		sprintf_s(msg, MSG_LEN, "CLIENT_VERSUS\n");
+		break;
+
+	case CLIENT_DISCONNECT:
+		sprintf_s(msg, MSG_LEN, "CLIENT_DISCONNECT\n");
+		break;
+
 	default:
 		printf("ERROR:The message type is not valid!\n");
 		return 1;
@@ -95,8 +103,14 @@ DWORD RecieveMsg(SOCKET socket, int *message_type, char ** params) {
 		*message_type = SERVER_DENIED;
 		inputs = 1;
 	}
+	else if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_VERSUS")) {
+		*message_type = CLIENT_VERSUS;
+	}
+	else if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_DISCONNECT")) {
+		*message_type = CLIENT_DISCONNECT;
+	}
 	else {
-		printf("ERROR: message type is invalid");
+		DEBUG("ERROR: message type is invalid");
 		return TRNS_FAILED;
 	}
 

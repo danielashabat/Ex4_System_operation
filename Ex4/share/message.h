@@ -18,7 +18,10 @@
     printf("function:[%s line:%d] fail\n", __func__,__LINE__);\
     return FALSE;\
 }
-typedef enum { CLIENT_REQUEST,CLIENT_VERSUS,CLIENT_SETUP,CLIENT_PLAYER_MOVE,CLIENT_DISCONNECT,SERVER_MAIN_MENU, SERVER_APPROVED,SERVER_DENIED,} message_type;
+
+#define DEBUG(MSG) printf("function:[%s line:%d] %s\n", __func__, __LINE__,MSG)
+
+typedef enum { CLIENT_REQUEST,CLIENT_VERSUS,CLIENT_SETUP,CLIENT_PLAYER_MOVE,CLIENT_DISCONNECT,SERVER_MAIN_MENU, SERVER_APPROVED,SERVER_DENIED} message_type;
 #define MSG_LEN 100//ask anat for the right length
 #define MAX_PARAMS 4
 // Function Declarations -------------------------------------------------------

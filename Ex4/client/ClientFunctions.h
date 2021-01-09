@@ -17,7 +17,7 @@
 
 // Function Declarations -------------------------------------------------------
 
-DWORD SendExample(SOCKET socket, char string[]);
 
-DWORD client_request(SOCKET socket, char* username, int* new_state);
+void print_main_menu();
+
 #endif // CLIENT_FUNCTIONS_H

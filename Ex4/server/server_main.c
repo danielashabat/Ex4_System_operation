@@ -230,7 +230,7 @@ static DWORD ServiceThread(LPVOID lpParam) {
     char* recieve_params[MAX_PARAMS] = { NULL };
     int k = 0;
 
-    while (k < 2) {
+    while (message_type!= CLIENT_DISCONNECT) {
         RecvRes = RecieveMsg(*t_socket, &message_type, recieve_params);
         if (!check_recv(RecvRes)) {
             printf("recieve string failed\n");
@@ -246,13 +246,19 @@ static DWORD ServiceThread(LPVOID lpParam) {
             IS_FAIL(SendRes);
             break;
 
-        case SERVER_MAIN_MENU:
+        case CLIENT_VERSUS:
+            //search for another client 
+            //if found send SERVER_INVITE
+            break;
+
+        case CLIENT_DISCONNECT:
+            //free stuff and end program
+            break;
 
         default:
             break;
         }
 
-        k++;
         free_params(recieve_params);
     }
     return 0;//end daniela debug

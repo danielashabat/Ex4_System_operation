@@ -65,14 +65,14 @@ int main() {
 		WSACleanup();
 		return;
 	}
-	char username[USER_LEN] = "daniela";
+	char username[] = "daniela";
 	int message_type = 0;
 	char* send_params[MAX_PARAMS] = { NULL };
 	char* recieve_params[MAX_PARAMS] = { NULL };
 	DWORD ret_val = 0;
 	int k = 0;
 
-	while (k < 2) {
+	while (message_type!= CLIENT_DISCONNECT) {
 
 		switch (message_type) {
 		case CLIENT_REQUEST:
@@ -86,21 +86,31 @@ int main() {
 		case SERVER_APPROVED:
 			break;
 		case SERVER_MAIN_MENU:
-			//main menue
+			print_main_menu();
+			int user_chose; 
+			scanf_s("%d", &user_chose);
+			if (user_chose == 1) {
+				ret_val = SendMsg(client_socket, CLIENT_VERSUS, NULL);
+				IS_FAIL(ret_val);
+			}
+			if (user_chose ==2) {
+				ret_val = SendMsg(client_socket, CLIENT_DISCONNECT, NULL);
+				IS_FAIL(ret_val);
+				message_type = CLIENT_DISCONNECT;
+				continue;
+			}
 			break;
 
-		case END_PROGRAM:
-			break;
 
 		}
+		free_params(recieve_params);
 		ret_val = RecieveMsg(client_socket, &message_type, recieve_params);//recieve server respond
 		IS_FAIL(ret_val);
-		free_params(recieve_params);
-		k++;
+
 	}
 
 
-
+	free_params(recieve_params);
 	closesocket(client_socket);
 
 	WSACleanup();
