@@ -19,11 +19,18 @@
     return RESULT;\
 }
 
+
+
 #define DEBUG(MSG) printf("function:[%s line:%d] %s\n", __func__, __LINE__,MSG)
 
-typedef enum { CLIENT_REQUEST,CLIENT_VERSUS,CLIENT_SETUP,CLIENT_PLAYER_MOVE,CLIENT_DISCONNECT,SERVER_MAIN_MENU, SERVER_APPROVED,SERVER_DENIED} message_type;
+typedef enum { CLIENT_REQUEST,CLIENT_VERSUS,CLIENT_SETUP,CLIENT_PLAYER_MOVE,
+                CLIENT_DISCONNECT,SERVER_MAIN_MENU, SERVER_APPROVED,SERVER_DENIED,
+                SERVER_INVITE,SERVER_SETUP_REQUEST,SERVER_PLAYER_MOVE_REQUEST,SERVER_GAME_RESULTS,
+                SERVER_WIN,SERVER_DRAW,SERVER_NO_OPPONENTS,SERVER_OPPONENT_QUIT} message_type;
 #define MSG_LEN 100//ask anat for the right length
 #define MAX_PARAMS 4
+#define DEFUALT_TIMEOUT 15
+#define INVITE_TIMEOUT 30
 // Function Declarations -------------------------------------------------------
 
 DWORD SendMsg(SOCKET socket, int message_type, char* params[]);
@@ -45,7 +52,7 @@ void free_params(char** params);
  * TRNS_DISCONNECTED - if the socket was disconnected
  * TRNS_FAILED - otherwise
  */
-DWORD RecieveMsg(SOCKET socket, int* message_type, char** params);
+DWORD RecieveMsg(SOCKET socket, int* message_type, char** params, int timeout);
 
 /*copy_param_from_message
 * dest - pointer to the destination of the string

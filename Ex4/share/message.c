@@ -15,7 +15,7 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 	char msg[MSG_LEN];
 	//messages send in this frame: "<message_type>:<param_list>\n"
 
-	printf("message_type:%d\n", message_type);
+	//printf("message_type:%d\n", message_type);
 
 	switch (message_type)
 	{
@@ -59,13 +59,25 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 
 
 //typedef enum { CLIENT_REQUEST,CLIENT_VERSUS,CLIENT_SETUP,CLIENT_PLAYER_MOVE,CLIENT_DISCONNECT,SERVER_MAIN_MENU, SERVER_APPROVED,SERVER_DENIED,} message_type;
-DWORD RecieveMsg(SOCKET socket, int *message_type, char ** params) {
+DWORD RecieveMsg(SOCKET socket, int *message_type, char ** params, int timeout) {
 	char* AcceptedStr = NULL;
 	TransferResult_t RecvRes;
 	int inputs = 0;
 	int* indexes = NULL;
 	int *lens = NULL;
 	int i = 0;
+
+	fd_set set;
+	struct timeval time_out;
+	FD_ZERO(&set); /* clear the set */
+	FD_SET(socket, &set); /* add our file descriptor to the set */
+	time_out.tv_sec = timeout;
+	time_out.tv_usec = 0;
+	int rv = select(socket+1, &set, NULL, NULL, &time_out);
+	if (rv == SOCKET_ERROR||rv==0)
+	{
+		IS_FAIL(TRNS_FAILED, "ERROR: Socket connection d\n")
+	}
 
 	RecvRes = ReceiveString(&AcceptedStr, socket);
 	

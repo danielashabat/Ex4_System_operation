@@ -228,10 +228,10 @@ static DWORD ServiceThread(LPVOID lpParam) {
     int message_type = CLIENT_REQUEST;
     char* send_params[MAX_PARAMS] = { NULL };
     char* recieve_params[MAX_PARAMS] = { NULL };
-    int k = 0;
+    int connected_to_client = 1;
 
-    while (message_type!= CLIENT_DISCONNECT) {
-        RecvRes = RecieveMsg(*t_socket, &message_type, recieve_params);
+    while (connected_to_client) {
+        RecvRes = RecieveMsg(*t_socket, &message_type, recieve_params, DEFUALT_TIMEOUT);
         if (!check_recv(RecvRes)) {
             printf("recieve string failed\n");
             return FALSE;
@@ -252,6 +252,7 @@ static DWORD ServiceThread(LPVOID lpParam) {
             break;
 
         case CLIENT_DISCONNECT:
+            connected_to_client = 0;
             //free stuff and end program
             break;
 
@@ -302,7 +303,7 @@ static DWORD ServiceThread(LPVOID lpParam) {
     //danielas code
     //strncpy_s(user_name, strlen(params[0]), params[0], strlen(user_name));//get user name
 
-    return 0;
+
 
     //end daniela code
 

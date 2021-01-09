@@ -13,9 +13,13 @@ Description –  this file implement the client main
 
 
 #define USER_LEN 20
+#define EXIT 2
 
-
-
+#define CHECK_CONNECTION(RESULT) if (RESULT != TRNS_SUCCEEDED)\
+{\
+	connected_to_server=0;\
+    client_exit_status= RESULT;\
+}
 
 int main() {
 	char username[] = "daniela";
@@ -23,10 +27,23 @@ int main() {
 	int port = SERVER_PORT;
 	int status = 0;
 
+	while (1) {
+		status = client(IP, port, username);
 
-	do {
-		 status=client(IP, port, username);
-	} while (status != TRNS_SUCCEEDED);
+		if (status == SUCCEEDED) {
+			break;
+		}
+		else if (status == DENIED) {
+			if (print_server_denied_menu(IP, port) == EXIT)
+				break;
+		}
+
+		else {//other fail
+			if (print_reconnect_menu(IP, port) == EXIT) {//user chose exit 
+				break;
+			}
+		}
+	}
 
 	return 0;
 }
@@ -66,60 +83,89 @@ int client(char  IP[10], int port, char  username[])
 										  // Call the connect function, passing the created socket and the sockaddr_in structure as parameters. 
 										  // Check for general errors.
 
-	while (SOCKET_ERROR == connect(client_socket, (SOCKADDR*)&clientService, sizeof(clientService))) {
-		int user_chose = print_reconnect_menu(IP, port);
-		if (user_chose == 2) {//user chose exit 
-			closesocket(client_socket);
-			WSACleanup();
-			return TRNS_SUCCEEDED;
-		}
-		else//user chose to reconnect
-			continue;
+	if (SOCKET_ERROR == connect(client_socket, (SOCKADDR*)&clientService, sizeof(clientService))) {
+		closesocket(client_socket);
+		WSACleanup();
+		return TRNS_FAILED;
 	}
 
 	printf("Connected to server on %s:%d\n", IP, port);
+
 
 	int message_type = 0;
 	char* send_params[MAX_PARAMS] = { NULL };
 	char* recieve_params[MAX_PARAMS] = { NULL };
 	DWORD ret_val = 0;
 	int k = 0;
-
-	while (message_type != CLIENT_DISCONNECT) {
+	int client_exit_status = SUCCEEDED;
+	int connected_to_server = 1;
+	int timeout = DEFUALT_TIMEOUT;
+	int user_chose=0;
+	char user_move[5] = { 0 };
+	while (connected_to_server) {
 
 		switch (message_type) {
 		case CLIENT_REQUEST:
-			send_params[0] = (char*)malloc(sizeof(char) * USER_LEN);
-			if (send_params[0] != NULL)
-				strcpy_s(send_params[0], USER_LEN, username);
+			send_params[0] = username;
 			ret_val = SendMsg(client_socket, CLIENT_REQUEST, send_params);
-			IS_FAIL(ret_val,"SendMsg Failed\n");
+			CHECK_CONNECTION(ret_val);
 			break;
 
 		case SERVER_APPROVED:
 			break;
-		case SERVER_MAIN_MENU:
-			print_main_menu();
-			int user_chose;
-			scanf_s("%d", &user_chose);
-			if (user_chose == 1) {
-				ret_val = SendMsg(client_socket, CLIENT_VERSUS, NULL);
-				IS_FAIL(ret_val, "SendMsg Failed\n");
-			}
-			if (user_chose == 2) {
-				ret_val = SendMsg(client_socket, CLIENT_DISCONNECT, NULL);
-				IS_FAIL(ret_val, "SendMsg Failed\n");
-				message_type = CLIENT_DISCONNECT;
-				continue;
-			}
+
+		case SERVER_DENIED:
+			connected_to_server = 0;
+			client_exit_status = DENIED;
 			break;
 
+		case SERVER_MAIN_MENU:
+			print_main_menu();
+			scanf_s("%d", &user_chose);
+			if (user_chose == 1) {//chose Play against another client
+				ret_val = SendMsg(client_socket, CLIENT_VERSUS, NULL);
+				CHECK_CONNECTION(ret_val);
+				timeout = INVITE_TIMEOUT;
+			}
+			if (user_chose == 2) {//client chose to quit
+				ret_val = SendMsg(client_socket, CLIENT_DISCONNECT, NULL);
+				CHECK_CONNECTION(ret_val);
+				connected_to_server = 0;
+			}
+			break;
+		case SERVER_INVITE:
+			printf("Game is on!\n");
+			break;
+
+		case SERVER_NO_OPPONENTS:
+			print_main_menu();
+			scanf_s("%d", &user_chose);
+			if (user_chose == 1) {//chose Play against another client
+				ret_val = SendMsg(client_socket, CLIENT_VERSUS, NULL);
+				CHECK_CONNECTION(ret_val);
+				timeout = INVITE_TIMEOUT;
+			}
+			if (user_chose == 2) {//client chose to quit
+				ret_val = SendMsg(client_socket, CLIENT_DISCONNECT, NULL);
+				CHECK_CONNECTION(ret_val);
+				connected_to_server = 0;
+			}
+			break;
+		case CLIENT_SETUP:
+			printf("Choose your guess:\n");
+			scanf_s("%4s", user_move, (rsize_t)sizeof(user_move));
+			send_params[0] = user_move;
+			ret_val = SendMsg(client_socket, CLIENT_PLAYER_MOVE, send_params);
+			CHECK_CONNECTION(ret_val);
+			break;
 
 		}
-		free_params(recieve_params);
-		ret_val = RecieveMsg(client_socket, &message_type, recieve_params);//recieve server respond
-		IS_FAIL(ret_val, "RecieveMsg Failed\n");
-
+		if (connected_to_server) {
+			free_params(recieve_params);
+			ret_val = RecieveMsg(client_socket, &message_type, recieve_params, timeout);//recieve server respond
+			timeout = DEFUALT_TIMEOUT;
+			CHECK_CONNECTION(ret_val);
+		}
 	}
 
 
@@ -128,7 +174,7 @@ int client(char  IP[10], int port, char  username[])
 
 	WSACleanup();
 
-	return TRNS_SUCCEEDED;
+	return client_exit_status;
 }
 
 
