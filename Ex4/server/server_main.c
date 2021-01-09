@@ -14,7 +14,7 @@
 #define NUM_OF_WORKER_THREADS 2
 #define MAX_LOOPS 1
 #define USER_LEN 20
-
+#define USER_NAME_MSG 30
 #define SEND_STR_SIZE 100
 HANDLE event_thread[NUM_OF_WORKER_THREADS];
 HANDLE event_file= NULL;
@@ -214,7 +214,6 @@ static DWORD ServiceThread(LPVOID lpParam) {
     int Ind;
     ThreadData* p_params;
     p_params = (ThreadData*)lpParam;
-    DWORD dwWaitResultFile;
     t_socket = p_params->p_socket;
     Ind = p_params->thread_number;
     char user_title[7];
@@ -224,6 +223,7 @@ static DWORD ServiceThread(LPVOID lpParam) {
     char initial_number[4];
     char* AcceptedStr = NULL;
     char user_name[USER_LEN];
+    char* oppsite_user_name[USER_NAME_MSG];
     int state = CLIENT_REQUEST;
 
     int message_type = 0;
@@ -247,8 +247,13 @@ static DWORD ServiceThread(LPVOID lpParam) {
             //free params and set to NULL
             break;
 
-        case SERVER_MAIN_MENU:
-
+        case CLIENT_DISCONNECT:
+            //close thread
+            
+        case CLIENT_VERSUS:
+            clien_versus(user_title, user_name, user_opposite_title, oppsite_ind, Ind, oppsite_user_name);
+            sprintf_s(SendStr, SEND_STR_SIZE, "SERVER_INVITE:%s\n", oppsite_user_name);
+            SendRes = SendString(SendStr, *t_socket);
         default:
             break;
         }
@@ -261,45 +266,12 @@ static DWORD ServiceThread(LPVOID lpParam) {
     //RecvRes = ReceiveString(&AcceptedStr, *t_socket);
 
 
-    //else {
-    //    printf("recieve string succeed: %s", AcceptedStr);
-    //}
+       //}
     
 
-    ////get user name from client
-    //if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_REQUEST")) {
-    //    printf("client request\n");
-
-    //    //get_param_index_and_len(&indexes, &lens, AcceptedStr, strlen(AcceptedStr));
-    //    //printf("get params succeed\n");
-    //    strncpy_s(user_name, strlen(params[0]), params[0], strlen(user_name));//get user name
-    //    //strcpy_s(SendStr, strlen("SERVER_APPROVED"), "SERVER_APPROVED");
-    //    //printf("sending string: %s", SendStr);
-
-    //    SendRes = SendMsg(*t_socket, SERVER_APPROVED, NULL);
-
-    //    //SendRes = SendString(SendStr, *t_socket);//send SERVER_APPROVED to client
-    //    if (!check_send(SendRes)) {
-    //        printf("send string failed\n");
-    //        return FALSE;
-    //    }
-    //    else {
-    //        printf("send string succeed\n");
-    //    }
-    //    return 0;
-    //    strcpy_s(SendStr, strlen("SERVER_MAIN_MENU"), "SERVER_MAIN_MENU");// send main menu  to client
-    //    SendRes = SendString(SendStr, *t_socket);
-    //    if (!check_send(SendRes)) return FALSE;
-    //    
-    //}
     
-    //danielas code
-    //strncpy_s(user_name, strlen(params[0]), params[0], strlen(user_name));//get user name
 
-    return 0;
-
-    //end daniela code
-
+    
     //wait for answer from client for menue
     RecvRes = ReceiveString(&AcceptedStr, *t_socket);
     if (!check_recv(RecvRes)) return FALSE;
@@ -308,28 +280,11 @@ static DWORD ServiceThread(LPVOID lpParam) {
         
     }
     else if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_VERSUS")) {
-        retval = file_handle(&user_name, Ind);
-
-        dwWaitResultFile = WaitForSingleObject(
-            event_file, // event handle
-            INFINITE);    // indefinite wait
-
-        if (dwWaitResultFile != WAIT_OBJECT_0) {
-            printf("Wait error (%d)\n", GetLastError());
-            return FALSE;
-        }
+        
         //first  send user name 
-        char message_to_file[27];
-        char oppsite_user_name[27];
-        int offest_end_file = 0 ;
-        strcpy_s(message_to_file,25, user_title);
+        
 
-        strcat_s(message_to_file, 25, user_name);
-        game_session(Ind, message_to_file, oppsite_user_name, TRUE ,offest_end_file, &offest_end_file, user_title, user_opposite_title, oppsite_ind);
-        ResetEvent(event_thread[Ind]);
-
-        sprintf_s(SendStr, SEND_STR_SIZE, "SERVER_INVITE:%s\n", oppsite_user_name);
-        SendRes = SendString(SendStr, *t_socket);
+        
 
         ///get initial number
         RecvRes = ReceiveString(&AcceptedStr, *t_socket);
@@ -618,3 +573,25 @@ BOOL read_from_pointer_in_file(int offset, char* buffer) {
     return TRUE;
 }
 
+BOOL clien_versus(char* user_title,char* user_name, char* user_opposite_title,int oppsite_ind, int Ind, char* oppsite_user_name) {
+
+    char message_to_file[USER_NAME_MSG];
+    int offest_end_file = 0;
+    DWORD retval;
+    DWORD dwWaitResultFile;
+
+    retval = file_handle(&user_name, Ind);
+
+    dwWaitResultFile = WaitForSingleObject(
+        event_file, // event handle
+        INFINITE);    // indefinite wait
+
+    if (dwWaitResultFile != WAIT_OBJECT_0) {
+        printf("Wait error (%d)\n", GetLastError());
+        return FALSE;
+    }
+    strcpy_s(message_to_file, USER_NAME_MSG, user_title);
+    strcat_s(message_to_file, USER_NAME_MSG, user_name);
+    game_session(Ind, message_to_file, oppsite_user_name, TRUE, offest_end_file, &offest_end_file, user_title, user_opposite_title, oppsite_ind);
+    ResetEvent(event_thread[Ind]);
+}
