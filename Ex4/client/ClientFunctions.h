@@ -17,7 +17,13 @@
 
 // Function Declarations -------------------------------------------------------
 
-DWORD SendExample(SOCKET socket, char string[]);
+typedef enum { FAILED= TRNS_FAILED,DISCONNECTED = TRNS_DISCONNECTED, SUCCEEDED = TRNS_SUCCEEDED,DENIED }return_values;
+//* TRNS_SUCCEEDED - if receivingand memory allocation succeeded
+//* TRNS_DISCONNECTED - if the socket was disconnected
+//* TRNS_FAILED - otherwise
 
-DWORD client_request(SOCKET socket, char* username, int* new_state);
+void print_main_menu();
+int print_reconnect_menu(char  IP[], int port);
+int print_server_denied_menu(char  IP[], int port);
+void print_result(char* bulls, char* cows, char* opponent_username, char* opponent_move);
 #endif // CLIENT_FUNCTIONS_H

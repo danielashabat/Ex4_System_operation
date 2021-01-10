@@ -2,55 +2,44 @@
 #include "message.h"
 
 
-//Sending message to the server
- DWORD SendExample(SOCKET socket, char string[])
-{
-	TransferResult_t SendRes;
-
-		SendRes = SendString(string, socket);
-
-		if (SendRes == TRNS_FAILED)
-		{
-			printf("Socket error while trying to write data to socket\n");
-			return 0x555;
-		}
-		else {
-			printf("sent to server string:%s SUCCEED!\n",string);
-			return 0;
-		}
-	
+void print_main_menu() {
+	printf("Choose what to do next:\n");
+	printf("1. Play against another client\n");
+	printf("2. Quit\n");
 }
 
 
-/* *Returns:
- *------ -
-	 *TRNS_SUCCEEDED - if receivingand memory allocation succeeded
-	 * TRNS_DISCONNECTED - if the socket was disconnected
-	 * TRNS_FAILED - otherwise
-	 * /*/
- DWORD client_request(SOCKET socket, char* username,int *new_state) {
-	 int message_type=0;
+/*print menu to client and return its result*/
+int print_reconnect_menu(char  IP[], int port)
+{
+	int user_chose = 0;
+	do {
+	printf("Failed connecting to server on %s:%d.\n", IP, port);
+	printf("Choose what to do next:\n");
+	printf("1. Try to reconnect\n");
+	printf("2. Exit\n");
+	scanf_s("%d", &user_chose);
+	} while (user_chose != 1 && user_chose != 2);//check if chose is valid
 
-	 char* send_params[1] = { username };
-	 DWORD ret_val = 0;
-	 ret_val = SendMsg(socket, CLIENT_REQUEST, send_params);
-	 if (ret_val != 0) {
-		 printf("ERROR:sendMsg failed\n");
-		 return ret_val;
-	 }
+	return user_chose;
+}
 
-	 char** recieve_params = NULL;
-	 ret_val = RecieveMsg(socket, &message_type, &recieve_params);//recieve server respond
-	 if (ret_val != TRNS_SUCCEEDED) {
-		 printf("%s line[%d] ERROR:RecieveMsg failed\n", __func__, __LINE__);
-		 return ret_val;
-	 }
-	 if (message_type == SERVER_APPROVED) 
-		 *new_state = SERVER_APPROVED;
-	 else 
-		 //server denied need to read the respond
-		 *new_state = END_PROGRAM;//server denied 
+int print_server_denied_menu(char  IP[], int port)
+{
+	int user_chose = 0;
+	do {
+		printf("server on %s:%d denied the connection request.\n", IP, port);
+		printf("Choose what to do next:\n");
+		printf("1. Try to reconnect\n");
+		printf("2. Exit\n");
+		scanf_s("%d", &user_chose);
+	} while (user_chose != 1 && user_chose != 2);//check if chose is valid
 
-	 free(&recieve_params);
-	 return TRNS_SUCCEEDED;
- }
+	return user_chose;
+}
+
+void print_result(char *bulls,char *cows, char* opponent_username, char* opponent_move) {
+	printf("Bulls: %s\n",bulls);
+	printf("Cows: %s\n",cows);
+	printf("%s played: %s\n", opponent_username, opponent_move);
+}

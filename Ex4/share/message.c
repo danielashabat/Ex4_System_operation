@@ -15,6 +15,8 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 	char msg[MSG_LEN];
 	//messages send in this frame: "<message_type>:<param_list>\n"
 
+	//printf("message_type:%d\n", message_type);
+
 	switch (message_type)
 	{
 
@@ -31,6 +33,18 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 		sprintf_s(msg, MSG_LEN, "SERVER_DENIED:%s\n", params[0]);
 		break;
 
+	case SERVER_MAIN_MENU:
+		sprintf_s(msg, MSG_LEN, "SERVER_MAIN_MENU\n");
+		break;
+
+	case CLIENT_VERSUS:
+		sprintf_s(msg, MSG_LEN, "CLIENT_VERSUS\n");
+		break;
+
+	case CLIENT_DISCONNECT:
+		sprintf_s(msg, MSG_LEN, "CLIENT_DISCONNECT\n");
+		break;
+
 	default:
 		printf("ERROR:The message type is not valid!\n");
 		return 1;
@@ -38,22 +52,14 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 	}
 	//send message
 	SendRes = SendString(msg, socket);
-
-	//check if failed
-	if (SendRes == TRNS_FAILED)
-	{
-		printf("Socket error while trying to write data to socket\n");
-		return 0x555;
-	}
-	else {
-		printf("-client info- succeed sent messeage: %s ", msg);
-		return 0;
-	}
+	IS_FAIL(SendRes, "Socket error while trying to write data to socket\n");
+	printf("-client info- succeed sent messeage: %s ", msg);
+	return TRNS_SUCCEEDED;
 }
 
 
 //typedef enum { CLIENT_REQUEST,CLIENT_VERSUS,CLIENT_SETUP,CLIENT_PLAYER_MOVE,CLIENT_DISCONNECT,SERVER_MAIN_MENU, SERVER_APPROVED,SERVER_DENIED,} message_type;
-DWORD RecieveMsg(SOCKET socket, int *message_type, char ***params) {
+DWORD RecieveMsg(SOCKET socket, int *message_type, char ** params, int timeout) {
 	char* AcceptedStr = NULL;
 	TransferResult_t RecvRes;
 	int inputs = 0;
@@ -61,21 +67,23 @@ DWORD RecieveMsg(SOCKET socket, int *message_type, char ***params) {
 	int *lens = NULL;
 	int i = 0;
 
-	if ((*params) != NULL) {
-		printf("ERROR: (*params) need to be intialized to NULL!\n");
-		return TRNS_FAILED;
+	fd_set set;
+	struct timeval time_out;
+	FD_ZERO(&set); /* clear the set */
+	FD_SET(socket, &set); /* add our file descriptor to the set */
+	time_out.tv_sec = timeout;
+	time_out.tv_usec = 0;
+	int rv = select(socket+1, &set, NULL, NULL, &time_out);
+	if (rv == SOCKET_ERROR||rv==0)
+	{
+		IS_FAIL(TRNS_FAILED, "ERROR: Socket connection d\n")
 	}
 
 	RecvRes = ReceiveString(&AcceptedStr, socket);
 	
 	//recieve the message
-	if (TRNS_SUCCEEDED == RecvRes) {
-		printf("RecieveString from server succeed the message is: %s", AcceptedStr);
-	}
-	else {
-		printf("RecieveString from server failed\n");
-		return RecvRes;
-	}
+	IS_FAIL(RecvRes, "RecieveString from server failed\n");
+	printf("RecieveString from server succeed the message is: %s", AcceptedStr);
 
 	//find the message type
 	if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_REQUEST")) {
@@ -94,25 +102,36 @@ DWORD RecieveMsg(SOCKET socket, int *message_type, char ***params) {
 		*message_type = SERVER_DENIED;
 		inputs = 1;
 	}
+	else if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_VERSUS")) {
+		*message_type = CLIENT_VERSUS;
+	}
+	else if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_DISCONNECT")) {
+		*message_type = CLIENT_DISCONNECT;
+	}
 	else {
-		printf("ERROR: message type is invalid");
-		return TRNS_FAILED;
+		IS_FAIL(TRNS_FAILED, "ERROR: message type is invalid\n")
 	}
 
 	//if paramters sent in the msg, allocate it in params
 	if (inputs > 0) {
 		printf("inputs is: %d\n",inputs);
-		//create array of strings
-		(*params) = (char**)malloc(inputs * sizeof(char*));
-		if (*params == NULL) { printf("ERROR: Allocation failed\n"); return TRNS_FAILED; }
-		get_params(AcceptedStr,inputs,*params);
-		printf("param[0]= %s\n", *params[0]);
+		get_params(AcceptedStr,inputs,params);
+		printf("param[0]= %s\n",params[0]);
 		
 	}
 
 	free(AcceptedStr);
 	return TRNS_SUCCEEDED;
 
+}
+
+void free_params(char** params) {
+	for (int i = 0; i < MAX_PARAMS; i++) {
+		if (params[i] != NULL) {
+			free(params[i]);
+			params[i]=NULL;
+		}
+	}
 }
 /*
 * dest - pointer to the destination of the string

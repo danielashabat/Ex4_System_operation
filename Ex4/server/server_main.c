@@ -226,11 +226,13 @@ static DWORD ServiceThread(LPVOID lpParam) {
     char* oppsite_user_name[USER_NAME_MSG];
     int state = CLIENT_REQUEST;
 
-    int message_type = 0;
-    char** params = NULL;
-    int k = 0;
-    while (k < 2) {
-        RecvRes = RecieveMsg(*t_socket, &message_type, &params);
+    int message_type = CLIENT_REQUEST;
+    char* send_params[MAX_PARAMS] = { NULL };
+    char* recieve_params[MAX_PARAMS] = { NULL };
+    int connected_to_client = 1;
+
+    while (connected_to_client) {
+        RecvRes = RecieveMsg(*t_socket, &message_type, recieve_params, DEFUALT_TIMEOUT);
         if (!check_recv(RecvRes)) {
             printf("recieve string failed\n");
             return FALSE;
@@ -238,27 +240,28 @@ static DWORD ServiceThread(LPVOID lpParam) {
         switch (message_type)
         {
         case CLIENT_REQUEST://get user name from client
-            strcpy_s(user_name, USER_LEN, params[0]);
+            strcpy_s(user_name, USER_LEN, recieve_params[0]);
             SendRes = SendMsg(*t_socket, SERVER_APPROVED, NULL);
-            IS_FAIL(SendRes);
+            IS_FAIL(SendRes,"SendMsg Failed\n");
             SendRes = SendMsg(*t_socket, SERVER_MAIN_MENU, NULL);
-            IS_FAIL(SendRes);
+            IS_FAIL(SendRes, "SendMsg Failed\n");
+            break;
 
-            //free params and set to NULL
+        case CLIENT_VERSUS:
+            //search for another client 
+            //if found send SERVER_INVITE
             break;
 
         case CLIENT_DISCONNECT:
-            //close thread
-            
-        case CLIENT_VERSUS:
-            clien_versus(user_title, user_name, user_opposite_title, oppsite_ind, Ind, oppsite_user_name);
-            sprintf_s(SendStr, SEND_STR_SIZE, "SERVER_INVITE:%s\n", oppsite_user_name);
-            SendRes = SendString(SendStr, *t_socket);
+            connected_to_client = 0;
+            //free stuff and end program
+            break;
+
         default:
             break;
         }
 
-        k++;
+        free_params(recieve_params);
     }
     return 0;//end daniela debug
 
