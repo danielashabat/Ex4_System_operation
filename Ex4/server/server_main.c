@@ -12,17 +12,21 @@
 #include "message.h"
 /*-------------Define Varibles--------*/
 #define NUM_OF_WORKER_THREADS 2
-#define MAX_LOOPS 1
+#define MAX_LOOPS 2
 #define USER_LEN 20
 #define USER_NAME_MSG 30
 #define SEND_STR_SIZE 100
+#define USER_TITLE 7
+
+#define CHECK_CONNECTION(RESULT) if (RESULT != TRNS_SUCCEEDED)\
+
 HANDLE event_thread[NUM_OF_WORKER_THREADS];
 HANDLE event_file= NULL;
 HANDLE file = NULL;
 HANDLE ThreadHandles[NUM_OF_WORKER_THREADS];
 SOCKET ThreadInputs[NUM_OF_WORKER_THREADS];
-SOCKET AcceptSocket;
-HANDLE file_mutex = NULL;
+//SOCKET AcceptSocket;
+
 /* -------------main------------------*/
 int other_thread_ind(int Ind, char* user_name, char* oppsite_user_name);
 BOOL  CreateThreadSimple(LPTHREAD_START_ROUTINE p_start_routine,
@@ -48,7 +52,7 @@ int main() {
     // Initialize Winsock.
     WSADATA wsaData;
     int StartupRes = WSAStartup(MAKEWORD(2, 2), &wsaData);
-
+    HANDLE file_mutex = NULL;
     if (StartupRes != NO_ERROR)
     {
         printf("error %ld at WSAStartup( ), ending program.\n", WSAGetLastError());
@@ -102,9 +106,18 @@ int main() {
         ThreadHandles[Ind] = NULL;
     create_mutexs_and_events();
 
+    file_mutex = CreateMutex(
+        NULL,	/* default security attributes */
+        FALSE,	/* initially not owned */
+        NULL);	/* unnamed mutex */
+    if (NULL == file_mutex)
+    {
+        printf("Error when creating mutex: %d\n", GetLastError());
+        return FALSE;
+    }
     for (Loop = 0; Loop < MAX_LOOPS; Loop++)
     {
-        AcceptSocket = accept(MainSocket, NULL, NULL);
+        SOCKET AcceptSocket = accept(MainSocket, NULL, NULL);
         if (AcceptSocket == INVALID_SOCKET)
         {
             printf("Accepting connection with client failed, error %ld\n", WSAGetLastError());
@@ -127,9 +140,9 @@ int main() {
         {
 
             printf("creating thread\n");
-            Create_Thread_data(&AcceptSocket, Ind,&ptr_to_thread);
+            Create_Thread_data(&AcceptSocket, Ind,file_mutex,&ptr_to_thread);
             CreateThreadSimple((LPTHREAD_START_ROUTINE)ServiceThread, ptr_to_thread, ThreadHandles+Ind);
-            ThreadInputs[Ind] = AcceptSocket; // shallow copy: don't close 
+           // ThreadInputs[Ind] = AcceptSocket; // shallow copy: don't close 
                                               // AcceptSocket, instead close 
                                               // ThreadInputs[Ind] when the
                                               // time comes.
@@ -201,7 +214,10 @@ static int FindFirstUnusedThreadSlot(){
 }
 
 static DWORD ServiceThread(LPVOID lpParam) {
+
     printf("enter to thread\n");
+
+    //declare
     char SendStr[SEND_STR_SIZE];
     char ParamStr[SEND_STR_SIZE];
     int num_of_param;
@@ -210,26 +226,33 @@ static DWORD ServiceThread(LPVOID lpParam) {
     TransferResult_t RecvRes;
     BOOL retval = FALSE;
     SOCKET* t_socket = NULL;
+    HANDLE file_mutex = NULL;
     BOOL read_users_flag;
     int Ind;
-    ThreadData* p_params;
-    p_params = (ThreadData*)lpParam;
-    t_socket = p_params->p_socket;
-    Ind = p_params->thread_number;
-    char user_title[7];
-    char user_opposite_title[7];
+    char user_title[USER_TITLE] = { 0 };
+    char user_opposite_title[USER_TITLE] = { 0 };
     char* user_opposite_pointer;
-    int oppsite_ind = other_thread_ind(Ind, user_title, user_opposite_title);
     char initial_number[4];
     char* AcceptedStr = NULL;
-    char user_name[USER_LEN];
-    char* oppsite_user_name[USER_NAME_MSG];
+    char user_name[USER_LEN] = { 0 };
+    char oppsite_user_name[USER_NAME_MSG]= { 0 };
     int state = CLIENT_REQUEST;
 
     int message_type = CLIENT_REQUEST;
     char* send_params[MAX_PARAMS] = { NULL };
     char* recieve_params[MAX_PARAMS] = { NULL };
     int connected_to_client = 1;
+    int ret_val;
+
+
+    //get thread params
+    ThreadData* p_params;
+    p_params = (ThreadData*)lpParam;
+    t_socket = p_params->p_socket;
+    Ind = p_params->thread_number;
+    file_mutex = p_params->file_mutex;
+
+    int oppsite_ind = other_thread_ind(Ind, user_title, user_opposite_title);
 
     while (connected_to_client) {
         RecvRes = RecieveMsg(*t_socket, &message_type, recieve_params, DEFUALT_TIMEOUT);
@@ -250,7 +273,22 @@ static DWORD ServiceThread(LPVOID lpParam) {
         case CLIENT_VERSUS:
             //search for another client 
             //if found send SERVER_INVITE
+            clien_versus(user_title, user_name, user_opposite_title, oppsite_ind, Ind, oppsite_user_name,file_mutex);
+            send_params[0] = oppsite_user_name;
+            ret_val = SendMsg(*t_socket, SERVER_INVITE, send_params);
+            CHECK_CONNECTION(ret_val);
+            //printf("%s", SendStr);
+            //SendRes = SendString(SendStr, *t_socket);
+
+
+            ret_val = SendMsg(*t_socket, SERVER_SETUP_REQUEST, send_params);
+            CHECK_CONNECTION(ret_val);
+            //printf("%s", SendStr);
+            //SendRes = SendString(SendStr, *t_socket);
             break;
+
+        case SERVER_SETUP_REQUEST:
+
 
         case CLIENT_DISCONNECT:
             connected_to_client = 0;
@@ -316,7 +354,7 @@ static DWORD ServiceThread(LPVOID lpParam) {
                 get_param_index_and_len(&indexes, &lens, AcceptedStr, strlen(AcceptedStr));
                 strncpy_s(your_guess, lens[0], *(AcceptedStr + indexes[0]), strlen(your_guess));
             }
-            game_session(Ind, message_to_file, oppsite_user_name, TRUE, offest_end_file, &offest_end_file, user_title, user_opposite_title, oppsite_ind);
+            //game_session(Ind, message_to_file, oppsite_user_name, TRUE, offest_end_file, &offest_end_file, user_title, user_opposite_title, oppsite_ind);
 
         }
 
@@ -364,7 +402,7 @@ BOOL  CreateThreadSimple(LPTHREAD_START_ROUTINE p_start_routine,
 }
 
 
-BOOL Create_Thread_data(SOCKET* socket, int num_of_thread, ThreadData** ptr_to_thread_data) {
+BOOL Create_Thread_data(SOCKET* socket, int num_of_thread,HANDLE file_handle_mutex, ThreadData** ptr_to_thread_data ) {
     (*ptr_to_thread_data) = (ThreadData*)malloc(sizeof(ThreadData));
     if (*ptr_to_thread_data == NULL) {
         printf("ERROR: allocation failed!\n");
@@ -372,6 +410,7 @@ BOOL Create_Thread_data(SOCKET* socket, int num_of_thread, ThreadData** ptr_to_t
     }
     (*ptr_to_thread_data)->thread_number = num_of_thread;
     (*ptr_to_thread_data)->p_socket = socket;
+    (*ptr_to_thread_data)->file_mutex = file_handle_mutex;
     // (*ptr_to_thread_data)->Event_first_thread = event_first_thread;
     // (*ptr_to_thread_data)->Event_second_thread = event_second_thread;
     return TRUE;
@@ -417,28 +456,19 @@ BOOL create_mutexs_and_events() {
         return FALSE;
     }
 
-    file_mutex = CreateMutex(
-        NULL,	/* default security attributes */
-        FALSE,	/* initially not owned */
-        NULL);	/* unnamed mutex */
-    if (NULL == file_mutex)
-    {
-        printf("Error when creating mutex: %d\n", GetLastError());
-        return FALSE;
-    }
 
     return TRUE;
 }
 
-BOOL file_handle(char* user_name, int Ind) {
+BOOL file_handle(char* user_name, int Ind, HANDLE file_mutex) {
     // check if need to open file - protected by mutex;
     DWORD wait_code;
     BOOL ret_val;
-    char file_path[16] = "GameSession.txt";
+    char file_path[74] = "C:\\Users\\Anat\\source\\repos\\Ex4_System_operation\\Ex4\\Debug\\GameSession.txt";
     BOOL bErrorFlag = FALSE;
     DWORD lpNumberOfBytesWritten;
     LPDWORD* end_of_file_offset;
-    
+    printf("start file handle\n");
    /* Create the mutex that will be used to synchronize access to queue */
     wait_code = WaitForSingleObject(file_mutex, INFINITE);
     if (WAIT_OBJECT_0 != wait_code)
@@ -446,12 +476,15 @@ BOOL file_handle(char* user_name, int Ind) {
         printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
         return FALSE;
     }
+    printf("enter mutex \n");
     //critical section- check if queue is not empty and pop the mission 
     if (file == NULL) {
         file = CreateFileA((LPCSTR)file_path,// file name 
-            GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+        printf("file is open\n");
     }
     else {
+        printf("seconf_player_enter");
         //GetFileSize(file, end_of_file_offset);
         //SetFilePointer(file, end_of_file_offset, NULL, FILE_BEGIN); 
         //WriteFile(file, user_name, strlen(user_name), &lpNumberOfBytesWritten, NULL);
@@ -475,29 +508,30 @@ BOOL file_handle(char* user_name, int Ind) {
 int other_thread_ind(int Ind,char* user_name, char* oppsite_user_name) {
 
     if (Ind == 0) {
-        strcpy_s(user_name, 7, "user0:");
-        strcpy_s(oppsite_user_name, 7, "user1:");
+        strcpy_s(user_name, USER_TITLE, "user0:");
+        strcpy_s(oppsite_user_name, USER_TITLE, "user1:");
         return 1;
     }
     if (Ind == 1) {
         strcpy_s(user_name, 7, "user1:");
-        strcpy_s(oppsite_user_name, 7, "user0:");
+        strcpy_s(oppsite_user_name, USER_TITLE, "user0:");
         
         return 0;
     }
 }
 
 
-BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL users_name_flag, int offset_first, int* offset_end ,char* user_title, char* user_opposite_title , int oppsite_ind) {
+BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL users_name_flag, int offset_first, int* offset_end ,char* user_title, char* user_opposite_title , int oppsite_ind, HANDLE file_mutex) {
 
     DWORD wait_code;
     BOOL bErrorFlag = FALSE;
     DWORD lpNumberOfBytesWritten;
     BOOL ret_val;
     DWORD dwWaitResultOtherClient;
-    char string_from_file[50];
+    char string_from_file[50] = {0};
     char* user_opposite_pointer;
-    
+    DWORD offset_end_a;
+    printf("start game session \n");
     wait_code = WaitForSingleObject(file_mutex, INFINITE);
     if (WAIT_OBJECT_0 != wait_code)
     {
@@ -509,7 +543,7 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
     SetFilePointer(file, 0, NULL, FILE_END); 
     WriteFile(file, message_to_file, strlen(message_to_file), &lpNumberOfBytesWritten, NULL);
     SetEvent(event_thread[Ind]);
-
+    printf("end writing \n");
     ret_val = ReleaseMutex(file_mutex);
     if (FALSE == ret_val)
     {
@@ -520,13 +554,28 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
     //Wait for the second thread to write
     dwWaitResultOtherClient = WaitForSingleObject(
     event_thread[oppsite_ind], // event handle
-    INFINITE);    // indefinite wait
-    offset_end = GetFileSize(file, NULL);
+    INFINITE);
+    if (WAIT_OBJECT_0 != dwWaitResultOtherClient)
+    {
+        printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
+        return FALSE;
+    }    // indefinite wait
+    printf("can start reading \n");
+    SetFilePointer(file, 0, NULL, FILE_BEGIN);
+    //offset_end_a = GetFileSize(file, NULL);
+    
+    //if (offset_end_a == INVALID_FILE_SIZE) {
+      //  printf("get size error (%s)\n", GetLastError());
+        //return FALSE;
+    //}
+    //printf("file size from begin %10d \n", offset_end_a);
+    printf("startreading \n");
     if (dwWaitResultOtherClient != WAIT_OBJECT_0) {
         printf("Wait error (%d)\n", GetLastError());
         return FALSE;
     }
     //in your turn read the other user play 
+    
     wait_code = WaitForSingleObject(file_mutex, INFINITE);
     if (WAIT_OBJECT_0 != wait_code)
     {
@@ -534,12 +583,18 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
         return FALSE;
     }
     ret_val = read_from_pointer_in_file(offset_first, string_from_file);
+    printf("string_from_file %s \n", string_from_file);
     if (ret_val) {
-        user_opposite_pointer = strstr(string_from_file, user_opposite_title);
-        int indexes[1];
-        int lens[1];
-        get_param_index_and_len(&indexes, &lens, user_opposite_pointer, 5);
-        strncpy_s(message_from_file, lens[0], user_opposite_pointer, strlen(user_opposite_pointer));
+        char param[20] = { 0 };
+        
+
+       // int indexes[1];
+       // int lens[1];
+       // get_param_index_and_len(&indexes, &lens, user_opposite_pointer, USER_TITLE-2);
+        //strncpy_s(message_from_file, strlen(message_from_file), *(user_opposite_pointer+ USER_TITLE - 2), lens[0]);
+        get_param_from_file(string_from_file, param, USER_TITLE - 1,user_opposite_title);
+        sprintf_s(message_from_file, USER_NAME_MSG, "%s", param);
+        printf("oppsinte name %s\n", message_from_file);
     }
    
     ret_val = ReleaseMutex(file_mutex);
@@ -563,28 +618,37 @@ BOOL read_from_pointer_in_file(int offset, char* buffer) {
     BOOL bResult = FALSE;
     int dw_pointer;
     DWORD end_of_file_offset;
-
+    char* buffer_to_read;
     
     dw_pointer = SetFilePointer(file, offset, NULL, FILE_BEGIN);//set poniter to offset
-    end_of_file_offset = GetFileSize(file,NULL);
-    nBytesToRead = end_of_file_offset - offset;
-    bResult = ReadFile(file, buffer, nBytesToRead, &dwBytesRead, NULL);
-    if (!bResult) {
+    end_of_file_offset = GetFileSize(file, NULL);
+    if (end_of_file_offset == INVALID_FILE_SIZE){
+        printf("get size error (%s)\n", GetLastError());
         return FALSE;
     }
+    printf("file size %10d\n", end_of_file_offset);
+    nBytesToRead = end_of_file_offset - offset-1;
+    buffer_to_read = (char*)malloc(nBytesToRead * sizeof(char));
+    bResult = ReadFile(file, buffer_to_read, nBytesToRead, &dwBytesRead, NULL);
+    if (!bResult) {
+        printf("READ from tasks file NOT success!");
+        return FALSE;
+    }
+    sprintf_s(buffer, 50,"%s", buffer_to_read);
+    free(buffer_to_read);
     printf("READ from tasks file success!");
     return TRUE;
 }
 
-BOOL clien_versus(char* user_title,char* user_name, char* user_opposite_title,int oppsite_ind, int Ind, char* oppsite_user_name) {
+BOOL clien_versus(char* user_title,char* user_name, char* user_opposite_title,int oppsite_ind, int Ind, char* oppsite_user_name, HANDLE file_mutex) {
 
-    char message_to_file[USER_NAME_MSG];
+    char message_to_file[USER_NAME_MSG] = {0};
     int offest_end_file = 0;
     DWORD retval;
     DWORD dwWaitResultFile;
 
-    retval = file_handle(&user_name, Ind);
-
+    retval = file_handle(&user_name, Ind,file_mutex);
+    printf("waiting for other playar\n");
     dwWaitResultFile = WaitForSingleObject(
         event_file, // event handle
         INFINITE);    // indefinite wait
@@ -593,8 +657,30 @@ BOOL clien_versus(char* user_title,char* user_name, char* user_opposite_title,in
         printf("Wait error (%d)\n", GetLastError());
         return FALSE;
     }
+    printf("file event set\n");
     strcpy_s(message_to_file, USER_NAME_MSG, user_title);
     strcat_s(message_to_file, USER_NAME_MSG, user_name);
-    game_session(Ind, message_to_file, oppsite_user_name, TRUE, offest_end_file, &offest_end_file, user_title, user_opposite_title, oppsite_ind);
+    strcat_s(message_to_file, USER_NAME_MSG, "\n\r");
+    game_session(Ind, message_to_file, oppsite_user_name, TRUE, 0, &offest_end_file, user_title, user_opposite_title, oppsite_ind, file_mutex);
     ResetEvent(event_thread[Ind]);
+    printf("oppsinte name %s\n", oppsite_user_name);
+}
+
+BOOL get_param_from_file(char* string_from_file, char* param, int start_point, char* user_opposite_title) {
+    char* user_opposite_pointer;
+    char check_param[100] = { 0 };
+    user_opposite_pointer = strstr(string_from_file, user_opposite_title);
+    strcpy_s(check_param, 100, user_opposite_pointer);
+    int j = 0;
+    for (int i = start_point; i < USER_NAME_MSG; i++)
+        if (check_param[i] != '\n') {
+            param[j] = check_param[i];
+            j++;
+        }
+        else {
+            break;
+        }
+    
+        
+
 }

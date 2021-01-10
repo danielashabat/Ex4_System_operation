@@ -29,8 +29,8 @@ typedef enum { CLIENT_REQUEST,CLIENT_VERSUS,CLIENT_SETUP,CLIENT_PLAYER_MOVE,
                 SERVER_WIN,SERVER_DRAW,SERVER_NO_OPPONENTS,SERVER_OPPONENT_QUIT} message_type;
 #define MSG_LEN 100//ask anat for the right length
 #define MAX_PARAMS 4
-#define DEFUALT_TIMEOUT 15
-#define INVITE_TIMEOUT 30
+#define DEFUALT_TIMEOUT 1500
+#define INVITE_TIMEOUT 3000
 // Function Declarations -------------------------------------------------------
 
 DWORD SendMsg(SOCKET socket, int message_type, char* params[]);
