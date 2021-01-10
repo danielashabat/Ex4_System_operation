@@ -301,10 +301,8 @@ static DWORD ServiceThread(LPVOID lpParam) {
 
         free_params(recieve_params);
     }
-    return 0;//end daniela debug
 
-    //free(&params)***need to make function!
-    //RecvRes = ReceiveString(&AcceptedStr, *t_socket);
+    RecvRes = ReceiveString(&AcceptedStr, *t_socket);
 
 
        //}
