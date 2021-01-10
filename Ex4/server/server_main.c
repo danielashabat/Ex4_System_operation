@@ -262,16 +262,14 @@ static DWORD ServiceThread(LPVOID lpParam) {
 
         free_params(recieve_params);
     }
-    return 0;//end daniela debug
 
-    //free(&params)***need to make function!
-    //RecvRes = ReceiveString(&AcceptedStr, *t_socket);
+    RecvRes = ReceiveString(&AcceptedStr, *t_socket);
 
 
-    //else {
-    //    printf("recieve string succeed: %s", AcceptedStr);
-    //}
-    
+    else {
+       printf("recieve string succeed: %s", AcceptedStr);
+    }
+    return 0;//end
 
     ////get user name from client
     //if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_REQUEST")) {
