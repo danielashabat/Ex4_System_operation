@@ -53,6 +53,10 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 	case SERVER_INVITE:
 		sprintf_s(msg, MSG_LEN, "SERVER_INVITE:%s\n", params[0]);
 		break;
+		
+	case SERVER_PLAYER_MOVE_REQUEST:
+		sprintf_s(msg, MSG_LEN, "SERVER_PLAYER_MOVE_REQUEST\n");
+		break;
 	default:
 		printf("ERROR:The message type is not valid!\n");
 		return 1;
@@ -122,6 +126,10 @@ DWORD RecieveMsg(SOCKET socket, int *message_type, char ** params, int timeout) 
 	else if (check_if_message_type_instr_message(AcceptedStr, "SERVER_SETUP_REQUEST")) {
 		*message_type = SERVER_SETUP_REQUEST;
 	}
+	else if (check_if_message_type_instr_message(AcceptedStr, "SERVER_PLAYER_MOVE_REQUEST")) {
+		*message_type = SERVER_PLAYER_MOVE_REQUEST;
+	}
+
 	else {
 		IS_FAIL(TRNS_FAILED, "ERROR: message type is invalid\n")
 	}

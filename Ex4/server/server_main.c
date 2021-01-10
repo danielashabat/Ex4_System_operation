@@ -17,6 +17,7 @@
 #define USER_NAME_MSG 30
 #define SEND_STR_SIZE 100
 #define USER_TITLE 7
+#define GUESS 4
 
 #define CHECK_CONNECTION(RESULT) if (RESULT != TRNS_SUCCEEDED) connected_to_client=0;
 
@@ -229,6 +230,9 @@ static DWORD ServiceThread(LPVOID lpParam) {
     HANDLE file_mutex = NULL;
     BOOL read_users_flag;
     int Ind;
+    char user_number[GUESS] = { 0 };
+    char opponent_guess[GUESS] = { 0 };
+    char session_result[USER_NAME_MSG] = { 0 };
     char user_title[USER_TITLE] = { 0 };
     char user_opposite_title[USER_TITLE] = { 0 };
     char* user_opposite_pointer;
@@ -236,6 +240,8 @@ static DWORD ServiceThread(LPVOID lpParam) {
     char* AcceptedStr = NULL;
     char user_name[USER_LEN] = { 0 };
     char oppsite_user_name[USER_NAME_MSG]= { 0 };
+    int cows;
+    int bulls;
     int state = CLIENT_REQUEST;
 
     int message_type = CLIENT_REQUEST;
@@ -281,13 +287,22 @@ static DWORD ServiceThread(LPVOID lpParam) {
             //SendRes = SendString(SendStr, *t_socket);
 
 
-            ret_val = SendMsg(*t_socket, SERVER_SETUP_REQUEST, send_params);
+            ret_val = SendMsg(*t_socket, SERVER_SETUP_REQUEST, NULL);
             CHECK_CONNECTION(ret_val);
             //printf("%s", SendStr);
             //SendRes = SendString(SendStr, *t_socket);
             break;
 
-        case SERVER_SETUP_REQUEST:
+        case CLIENT_SETUP:
+            strcpy_s(user_number, GUESS, recieve_params[0]);
+            ret_val = SendMsg(*t_socket, SERVER_PLAYER_MOVE_REQUEST, NULL);
+            CHECK_CONNECTION(ret_val);
+            break;
+
+        case CLIENT_PLAYER_MOVE:
+            strcpy_s(opponent_guess, GUESS, recieve_params[0]);
+            client_move(Ind, opponent_guess, session_result, FALSE, user_title,user_opposite_title, oppsite_ind, user_number, file_mutex);
+
 
 
         case CLIENT_DISCONNECT:
@@ -519,7 +534,7 @@ int other_thread_ind(int Ind,char* user_name, char* oppsite_user_name) {
 }
 
 
-BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL users_name_flag, int offset_first, int* offset_end ,char* user_title, char* user_opposite_title , int oppsite_ind, HANDLE file_mutex) {
+BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL users_name_flag,char* user_title, char* user_opposite_title , int oppsite_ind, HANDLE file_mutex) {
 
     DWORD wait_code;
     BOOL bErrorFlag = FALSE;
@@ -538,7 +553,9 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
     }
 
     //critical 
-    SetFilePointer(file, 0, NULL, FILE_END); 
+    
+    offset_end_a = GetFileSize(file, NULL);//get the number wo bytes in file before writing
+    SetFilePointer(file, 0, NULL, FILE_END); //set pointer to end of file
     WriteFile(file, message_to_file, strlen(message_to_file), &lpNumberOfBytesWritten, NULL);
     SetEvent(event_thread[Ind]);
     printf("end writing \n");
@@ -560,12 +577,7 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
     }    // indefinite wait
     printf("can start reading \n");
     SetFilePointer(file, 0, NULL, FILE_BEGIN);
-    //offset_end_a = GetFileSize(file, NULL);
     
-    //if (offset_end_a == INVALID_FILE_SIZE) {
-      //  printf("get size error (%s)\n", GetLastError());
-        //return FALSE;
-    //}
     //printf("file size from begin %10d \n", offset_end_a);
     printf("startreading \n");
     if (dwWaitResultOtherClient != WAIT_OBJECT_0) {
@@ -580,7 +592,7 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
         printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
         return FALSE;
     }
-    ret_val = read_from_pointer_in_file(offset_first, string_from_file);
+    ret_val = read_from_pointer_in_file(offset_end_a, string_from_file);
     printf("string_from_file %s \n", string_from_file);
     if (ret_val) {
         char param[20] = { 0 };
@@ -591,6 +603,7 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
        // get_param_index_and_len(&indexes, &lens, user_opposite_pointer, USER_TITLE-2);
         //strncpy_s(message_from_file, strlen(message_from_file), *(user_opposite_pointer+ USER_TITLE - 2), lens[0]);
         get_param_from_file(string_from_file, param, USER_TITLE - 1,user_opposite_title);
+        printf("get_param_succseed\n");
         sprintf_s(message_from_file, USER_NAME_MSG, "%s", param);
         printf("oppsinte name %s\n", message_from_file);
     }
@@ -621,7 +634,7 @@ BOOL read_from_pointer_in_file(int offset, char* buffer) {
     dw_pointer = SetFilePointer(file, offset, NULL, FILE_BEGIN);//set poniter to offset
     end_of_file_offset = GetFileSize(file, NULL);
     if (end_of_file_offset == INVALID_FILE_SIZE){
-        printf("get size error (%s)\n", GetLastError());
+        printf("get size error (%d)\n", GetLastError());
         return FALSE;
     }
     printf("file size %10d\n", end_of_file_offset);
@@ -659,9 +672,30 @@ BOOL clien_versus(char* user_title,char* user_name, char* user_opposite_title,in
     strcpy_s(message_to_file, USER_NAME_MSG, user_title);
     strcat_s(message_to_file, USER_NAME_MSG, user_name);
     strcat_s(message_to_file, USER_NAME_MSG, "\n\r");
-    game_session(Ind, message_to_file, oppsite_user_name, TRUE, 0, &offest_end_file, user_title, user_opposite_title, oppsite_ind, file_mutex);
+    game_session(Ind, message_to_file, oppsite_user_name, TRUE, user_title, user_opposite_title, oppsite_ind, file_mutex);
     ResetEvent(event_thread[Ind]);
     printf("oppsinte name %s\n", oppsite_user_name);
+}
+
+BOOL client_move(int Ind, char* opponent_guess, char* message_from_file, BOOL users_name_flag,
+    char* user_title, char* user_opposite_title, int oppsite_ind,char* your_number
+    , HANDLE file_mutex) {
+    int cows;
+    int bulls;
+
+    char guess_message_to_file[USER_NAME_MSG] = { 0 };
+    char cows_and_bulls[USER_NAME_MSG] = { 0 };
+    char cows_and_bulls_message_to_file[USER_NAME_MSG] = { 0 };
+    sprintf_s(guess_message_to_file, USER_NAME_MSG, "%s%s\n\r", user_title, opponent_guess);
+    game_session(Ind, guess_message_to_file, message_from_file, FALSE, user_title, user_opposite_title, oppsite_ind, file_mutex);
+    ResetEvent(event_thread[Ind]);
+    get_bulls_and_cows(your_number, message_from_file, &cows, &bulls);
+    sprintf_s(cows_and_bulls, USER_NAME_MSG, "%d,%d", bulls, cows);
+    sprintf_s(cows_and_bulls_message_to_file, USER_NAME_MSG, "%s%s\n\r", user_title, cows_and_bulls);
+    game_session(Ind, cows_and_bulls_message_to_file, message_from_file, FALSE, user_title, user_opposite_title, oppsite_ind, file_mutex);
+    ResetEvent(event_thread[Ind]);
+    
+
 }
 
 BOOL get_param_from_file(char* string_from_file, char* param, int start_point, char* user_opposite_title) {
@@ -680,5 +714,53 @@ BOOL get_param_from_file(char* string_from_file, char* param, int start_point, c
         }
     
         
+
+}
+
+/*
+*get_bulls_and_cows assigns to bullsand cows the results
+*
+* Accepts:
+*------ -
+*guess - pointer to string
+* opponent_digits - pointer to string
+* bulls - pointer to int
+* cows - pointer to int
+*/
+void get_bulls_and_cows(char* guess, char* opponent_digits, int* cows, int* bulls) {
+    int digits[10] = { 0 };
+    int i = 0;
+    int index = 0;
+    *cows = 0;
+    *bulls = 0;
+    //get bulls
+    //bulls= the number of digits that exist in guess and in opponent_digits
+    for (i = 0; (guess[i] != '\0') || (opponent_digits[i] != '\0'); i++) {
+        if ((guess[i] >= '0') && (opponent_digits[i]) >= '0') {
+            digits[(int)guess[i] - 48]++;
+            digits[(int)opponent_digits[i] - 48]++;
+        }
+        else printf("ERROR: inputs for function are not digits");
+    }
+
+    for (i = 0; i < 10; i++) {
+        if (digits[i] == 2)
+            (*cows)++;
+    }
+    //get cows
+    //cows=number of exactly the same poistion and number in guess and in opponent_digits
+    for (i = 0; (guess[i] != '\0') || (opponent_digits[i] != '\0'); i++) {
+        if (guess[i] == opponent_digits[i]) {
+            (*bulls)++;
+            index = (int)guess[i] - 48;
+            if (0 <= index && index < 10) {
+                if (digits[index] == 2) {
+                    (*cows)--;
+                }
+            }
+        }
+    }
+    printf("number of bulls:%d; number of cows:%d\n", *bulls, *cows);
+    return;
 
 }
