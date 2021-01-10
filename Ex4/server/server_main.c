@@ -299,9 +299,9 @@ static DWORD ServiceThread(LPVOID lpParam) {
             CHECK_CONNECTION(ret_val);
             break;
 
-        case CLIENT_PLAYER_MOVE:
-            strcpy_s(opponent_guess, GUESS, recieve_params[0]);
-            client_move(Ind, opponent_guess, session_result, FALSE, user_title,user_opposite_title, oppsite_ind, user_number, file_mutex);
+       // case CLIENT_PLAYER_MOVE:
+            //strcpy_s(opponent_guess, GUESS, recieve_params[0]);
+            //client_move(Ind, opponent_guess, session_result, FALSE, user_title,user_opposite_title, oppsite_ind, user_number, file_mutex);
 
 
 
@@ -316,7 +316,7 @@ static DWORD ServiceThread(LPVOID lpParam) {
 
         free_params(recieve_params);
     }
-
+    return;
     RecvRes = ReceiveString(&AcceptedStr, *t_socket);
 
 
