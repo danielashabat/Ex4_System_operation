@@ -18,7 +18,7 @@
 #define SEND_STR_SIZE 100
 #define USER_TITLE 7
 
-#define CHECK_CONNECTION(RESULT) if (RESULT != TRNS_SUCCEEDED)\
+#define CHECK_CONNECTION(RESULT) if (RESULT != TRNS_SUCCEEDED) connected_to_client=0;
 
 HANDLE event_thread[NUM_OF_WORKER_THREADS];
 HANDLE event_file= NULL;
