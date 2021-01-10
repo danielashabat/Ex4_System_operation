@@ -158,7 +158,7 @@ int client(char  IP[], int port, char  username[])
 			printf("Choose your 4 digits:\n");
 			scanf_s("%4s", user_move, (rsize_t)sizeof(user_move));
 			
-			send_params[0] = user_move;
+			
 			ret_val = SendMsg(client_socket, CLIENT_SETUP, send_params);
 			CHECK_CONNECTION(ret_val);
 			break;

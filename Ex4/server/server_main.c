@@ -317,63 +317,20 @@ static DWORD ServiceThread(LPVOID lpParam) {
         free_params(recieve_params);
     }
     return;
-    RecvRes = ReceiveString(&AcceptedStr, *t_socket);
+   
 
 
-       //}
+    
     
 
     
 
     
-    //wait for answer from client for menue
-    RecvRes = ReceiveString(&AcceptedStr, *t_socket);
-    if (!check_recv(RecvRes)) return FALSE;
-    if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_DISCONNECT")) {
-        Done == TRUE;///TODO : need to close thread##########!!!!!!!!
-        
-    }
-    else if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_VERSUS")) {
-        
-        //first  send user name 
-        
-
-        
-
-        ///get initial number
-        RecvRes = ReceiveString(&AcceptedStr, *t_socket);
-        if (check_if_message_type_instr_message(AcceptedStr,"CLIENT_SETUP")) {
-            int indexes[1];
-            int lens[1];
-            get_param_index_and_len(&indexes, &lens, AcceptedStr, strlen(AcceptedStr));
-            strncpy_s(initial_number, lens[0], *(AcceptedStr + indexes[0]), strlen(initial_number));
-        }
-
-
-        
-        //a
-        //game session
-        //Until some one wins
-        //recive the number to guess 
-        while (!Done) {
-            char your_guess[4];
-            char oppsite_guess[4];
-            strcpy_s(SendStr, strlen("SERVER_PLAYER_MOVE_REQUEST"), "SERVER_PLAYER_MOVE_REQUEST");// ask for guess
-            SendRes = SendString(SendStr, *t_socket);
-            RecvRes = ReceiveString(&AcceptedStr, *t_socket);
-            if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_PLAYER_MOVE")) {
-                int indexes[1];
-                int lens[1];
-                get_param_index_and_len(&indexes, &lens, AcceptedStr, strlen(AcceptedStr));
-                strncpy_s(your_guess, lens[0], *(AcceptedStr + indexes[0]), strlen(your_guess));
-            }
-            //game_session(Ind, message_to_file, oppsite_user_name, TRUE, offest_end_file, &offest_end_file, user_title, user_opposite_title, oppsite_ind);
-
-        }
 
 
 
-    }
+
+    
     
 
   
@@ -428,6 +385,7 @@ BOOL Create_Thread_data(SOCKET* socket, int num_of_thread,HANDLE file_handle_mut
     // (*ptr_to_thread_data)->Event_second_thread = event_second_thread;
     return TRUE;
 }
+
 BOOL create_mutexs_and_events() {
 
     event_thread[0] = CreateEvent(
@@ -473,7 +431,7 @@ BOOL create_mutexs_and_events() {
     return TRUE;
 }
 
-BOOL file_handle(char* user_name, int Ind, HANDLE file_mutex) {
+BOOL file_handle(  HANDLE file_mutex) {
     // check if need to open file - protected by mutex;
     DWORD wait_code;
     BOOL ret_val;
@@ -493,8 +451,12 @@ BOOL file_handle(char* user_name, int Ind, HANDLE file_mutex) {
     //critical section- check if queue is not empty and pop the mission 
     if (file == NULL) {
         file = CreateFileA((LPCSTR)file_path,// file name 
-            GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
-        printf("file is open\n");
+            GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (file == INVALID_HANDLE_VALUE)
+        {
+            return FALSE;
+            printf("file is open\n");
+        }
     }
     else {
         printf("seconf_player_enter");
@@ -535,7 +497,6 @@ int other_thread_ind(int Ind,char* user_name, char* oppsite_user_name) {
 
 
 BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL users_name_flag,char* user_title, char* user_opposite_title , int oppsite_ind, HANDLE file_mutex) {
-
     DWORD wait_code;
     BOOL bErrorFlag = FALSE;
     DWORD lpNumberOfBytesWritten;
@@ -554,7 +515,8 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
 
     //critical 
     
-    offset_end_a = GetFileSize(file, NULL);//get the number wo bytes in file before writing
+    
+   
     SetFilePointer(file, 0, NULL, FILE_END); //set pointer to end of file
     WriteFile(file, message_to_file, strlen(message_to_file), &lpNumberOfBytesWritten, NULL);
     SetEvent(event_thread[Ind]);
@@ -576,7 +538,7 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
         return FALSE;
     }    // indefinite wait
     printf("can start reading \n");
-    SetFilePointer(file, 0, NULL, FILE_BEGIN);
+    
     
     //printf("file size from begin %10d \n", offset_end_a);
     printf("startreading \n");
@@ -592,16 +554,12 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
         printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
         return FALSE;
     }
-    ret_val = read_from_pointer_in_file(offset_end_a, string_from_file);
+    SetFilePointer(file, 0, NULL, FILE_BEGIN);
+    ret_val = read_from_pointer_in_file(0, string_from_file);
     printf("string_from_file %s \n", string_from_file);
     if (ret_val) {
         char param[20] = { 0 };
-        
 
-       // int indexes[1];
-       // int lens[1];
-       // get_param_index_and_len(&indexes, &lens, user_opposite_pointer, USER_TITLE-2);
-        //strncpy_s(message_from_file, strlen(message_from_file), *(user_opposite_pointer+ USER_TITLE - 2), lens[0]);
         get_param_from_file(string_from_file, param, USER_TITLE - 1,user_opposite_title);
         printf("get_param_succseed\n");
         sprintf_s(message_from_file, USER_NAME_MSG, "%s", param);
@@ -631,20 +589,21 @@ BOOL read_from_pointer_in_file(int offset, char* buffer) {
     DWORD end_of_file_offset;
     char* buffer_to_read;
     
-    dw_pointer = SetFilePointer(file, offset, NULL, FILE_BEGIN);//set poniter to offset
+    //dw_pointer = SetFilePointer(file, offset, NULL, FILE_BEGIN);//set poniter to offset
     end_of_file_offset = GetFileSize(file, NULL);
     if (end_of_file_offset == INVALID_FILE_SIZE){
         printf("get size error (%d)\n", GetLastError());
         return FALSE;
     }
     printf("file size %10d\n", end_of_file_offset);
-    nBytesToRead = end_of_file_offset - offset-1;
-    buffer_to_read = (char*)malloc(nBytesToRead * sizeof(char));
+    nBytesToRead = end_of_file_offset - offset;
+    buffer_to_read = (char*)malloc((nBytesToRead+1) * sizeof(char));
     bResult = ReadFile(file, buffer_to_read, nBytesToRead, &dwBytesRead, NULL);
     if (!bResult) {
         printf("READ from tasks file NOT success!");
         return FALSE;
     }
+    buffer_to_read[dwBytesRead] = '\0';
     sprintf_s(buffer, 50,"%s", buffer_to_read);
     free(buffer_to_read);
     printf("READ from tasks file success!");
@@ -658,7 +617,7 @@ BOOL clien_versus(char* user_title,char* user_name, char* user_opposite_title,in
     DWORD retval;
     DWORD dwWaitResultFile;
 
-    retval = file_handle(&user_name, Ind,file_mutex);
+    retval = file_handle(file_mutex);
     printf("waiting for other playar\n");
     dwWaitResultFile = WaitForSingleObject(
         event_file, // event handle
@@ -675,6 +634,7 @@ BOOL clien_versus(char* user_title,char* user_name, char* user_opposite_title,in
     game_session(Ind, message_to_file, oppsite_user_name, TRUE, user_title, user_opposite_title, oppsite_ind, file_mutex);
     ResetEvent(event_thread[Ind]);
     printf("oppsinte name %s\n", oppsite_user_name);
+    close_file_handle(file_mutex);
 }
 
 BOOL client_move(int Ind, char* opponent_guess, char* message_from_file, BOOL users_name_flag,
@@ -682,18 +642,42 @@ BOOL client_move(int Ind, char* opponent_guess, char* message_from_file, BOOL us
     , HANDLE file_mutex) {
     int cows;
     int bulls;
+    DWORD retval;
+    DWORD dwWaitResultFile;
 
+    retval = file_handle(file_mutex);
+    printf("waiting for other playar\n");
+    dwWaitResultFile = WaitForSingleObject(
+        event_file, // event handle
+        INFINITE);    // indefinite wait
+
+    if (dwWaitResultFile != WAIT_OBJECT_0) {
+        printf("Wait error (%d)\n", GetLastError());
+        return FALSE;
+    }
     char guess_message_to_file[USER_NAME_MSG] = { 0 };
     char cows_and_bulls[USER_NAME_MSG] = { 0 };
     char cows_and_bulls_message_to_file[USER_NAME_MSG] = { 0 };
     sprintf_s(guess_message_to_file, USER_NAME_MSG, "%s%s\n\r", user_title, opponent_guess);
     game_session(Ind, guess_message_to_file, message_from_file, FALSE, user_title, user_opposite_title, oppsite_ind, file_mutex);
     ResetEvent(event_thread[Ind]);
+    close_file_handle(file_mutex);
     get_bulls_and_cows(your_number, message_from_file, &cows, &bulls);
     sprintf_s(cows_and_bulls, USER_NAME_MSG, "%d,%d", bulls, cows);
     sprintf_s(cows_and_bulls_message_to_file, USER_NAME_MSG, "%s%s\n\r", user_title, cows_and_bulls);
+    retval = file_handle(file_mutex);
+    printf("waiting for other playar\n");
+    dwWaitResultFile = WaitForSingleObject(
+        event_file, // event handle
+        INFINITE);    // indefinite wait
+
+    if (dwWaitResultFile != WAIT_OBJECT_0) {
+        printf("Wait error (%d)\n", GetLastError());
+        return FALSE;
+    }
     game_session(Ind, cows_and_bulls_message_to_file, message_from_file, FALSE, user_title, user_opposite_title, oppsite_ind, file_mutex);
     ResetEvent(event_thread[Ind]);
+    close_file_handle(file_mutex);
     
 
 }
@@ -764,3 +748,45 @@ void get_bulls_and_cows(char* guess, char* opponent_digits, int* cows, int* bull
     return;
 
 }
+
+
+BOOL close_file_handle(HANDLE file_mutex) {
+    // check if need to open file - protected by mutex;
+    DWORD wait_code;
+    BOOL ret_val;
+    
+    
+    
+    
+    
+    /* Create the mutex that will be used to synchronize access to queue */
+    wait_code = WaitForSingleObject(file_mutex, INFINITE);
+    if (WAIT_OBJECT_0 != wait_code)
+    {
+        printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
+        return FALSE;
+    }
+    printf("enter mutex \n");
+    //critical section- check if queue is not empty and pop the mission 
+    if (file != NULL) {
+        CloseHandle(file);
+        file = NULL;
+    }
+    else {
+        
+        ResetEvent(event_file);
+    }
+    //end of critical section 
+    //*Release queue mutex
+
+    ret_val = ReleaseMutex(file_mutex);
+    if (FALSE == ret_val)
+    {
+        printf("-ERROR: %d - release semaphore failed !\n", GetLastError());
+        return FALSE;
+    }
+    return TRUE;
+
+
+}
+
