@@ -54,6 +54,7 @@ int main() {
     WSADATA wsaData;
     int StartupRes = WSAStartup(MAKEWORD(2, 2), &wsaData);
     HANDLE file_mutex = NULL;
+    BOOL ret_val;
     if (StartupRes != NO_ERROR)
     {
         printf("error %ld at WSAStartup( ), ending program.\n", WSAGetLastError());
@@ -66,7 +67,7 @@ int main() {
     if (MainSocket == INVALID_SOCKET)
     {
         printf("Error at socket( ): %ld\n", WSAGetLastError());
-        goto server_cleanup_1;
+        goto server_main_cleanup_1;
     }
     
     //create a sockaddr_in 
@@ -76,7 +77,7 @@ int main() {
     {
         printf("The string \"%s\" cannot be converted into an ip address. ending program.\n",
             SERVER_ADDRESS_STR);
-        goto server_cleanup_2;
+        goto server_main_cleanup_2;
     }
 
     service.sin_family = AF_INET;
@@ -88,7 +89,7 @@ int main() {
     if (bindRes == SOCKET_ERROR)
     {
         printf("bind( ) failed with error %ld. Ending program\n", WSAGetLastError());
-        goto server_cleanup_2;
+        goto server_main_cleanup_2;
     }
 
     // Listen on the Socket.
@@ -97,7 +98,7 @@ int main() {
     if (ListenRes == SOCKET_ERROR)
     {
         printf("Failed listening on socket, error %ld.\n", WSAGetLastError());
-        goto server_cleanup_2;
+        goto server_main_cleanup_2;
     }
     //Initalize all event to NULL
     for (Ind = 0; Ind < NUM_OF_WORKER_THREADS; Ind++)
@@ -105,7 +106,7 @@ int main() {
     // Initialize all thread handles to NULL, to mark that they have not been initialized
     for (Ind = 0; Ind < NUM_OF_WORKER_THREADS; Ind++)
         ThreadHandles[Ind] = NULL;
-    create_mutexs_and_events();
+    ret_val = create_mutexs_and_events();
 
     file_mutex = CreateMutex(
         NULL,	/* default security attributes */
@@ -114,15 +115,17 @@ int main() {
     if (NULL == file_mutex)
     {
         printf("Error when creating mutex: %d\n", GetLastError());
-        return FALSE;
+        goto server_main_cleanup_2;
     }
     for (Loop = 0; Loop < MAX_LOOPS; Loop++)
     {
         SOCKET AcceptSocket = accept(MainSocket, NULL, NULL);
+        
         if (AcceptSocket == INVALID_SOCKET)
         {
             printf("Accepting connection with client failed, error %ld\n", WSAGetLastError());
-            //goto server_cleanup_3;
+            goto server_main_cleanup_3;
+
         }
 
         printf("Client Connected.\n");
@@ -141,17 +144,61 @@ int main() {
         {
 
             printf("creating thread\n");
-            Create_Thread_data(&AcceptSocket, Ind,file_mutex,&ptr_to_thread);
-            CreateThreadSimple((LPTHREAD_START_ROUTINE)ServiceThread, ptr_to_thread, ThreadHandles+Ind);
-           // ThreadInputs[Ind] = AcceptSocket; // shallow copy: don't close 
-                                              // AcceptSocket, instead close 
-                                              // ThreadInputs[Ind] when the
-                                              // time comes.
-            
+            ThreadInputs[Ind] = AcceptSocket;
+            ret_val = Create_Thread_data(&AcceptSocket, Ind,file_mutex,&ptr_to_thread);
+            if (!ret_val) {
+                goto server_main_cleanup_3;
+            }
+            ret_val = CreateThreadSimple((LPTHREAD_START_ROUTINE)ServiceThread, ptr_to_thread, ThreadHandles+Ind);
+            if (!ret_val) {
+                goto server_main_cleanup_3;
+            }
         }
 
 
     }
+
+    
+/*---------------goto cleanup-------------------*/
+server_main_cleanup_1:
+    if (WSACleanup() == SOCKET_ERROR)
+        printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
+
+server_main_cleanup_2:
+    if (closesocket(MainSocket) == SOCKET_ERROR)
+        printf("Failed to close MainSocket, error %ld. Ending program\n", WSAGetLastError());
+    if (WSACleanup() == SOCKET_ERROR)
+        printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
+
+server_main_cleanup_3:
+    for (Ind = 0; Ind < NUM_OF_WORKER_THREADS; Ind++)
+    {
+        if (ThreadHandles[Ind] != NULL)
+        {
+            CloseHandle(ThreadHandles[Ind]);
+        }
+        if (ThreadInputs[Ind] != NULL) {
+            closesocket(ThreadInputs[Ind]);
+        }
+    }
+    if (event_file != NULL) {
+        CloseHandle(event_file);
+    }
+    if (event_thread[0] != NULL) {
+        CloseHandle(event_thread[0]);
+    }
+    if (event_thread[1] != NULL) {
+        CloseHandle(event_thread[1]);
+    }
+    if (file_mutex != NULL) {
+        CloseHandle(file_mutex);
+    }
+    if (WSACleanup() == SOCKET_ERROR)
+        printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
+    if (file != NULL) {
+        CloseHandle(file);
+    }
+server_main_cleanup_final:
 
     for (Ind = 0; Ind < NUM_OF_WORKER_THREADS; Ind++)
     {
@@ -174,14 +221,18 @@ int main() {
             }
         }
     }
-/*---------------goto cleanup-------------------*/
-server_cleanup_1:
-    if (WSACleanup() == SOCKET_ERROR)
-        printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
-
-server_cleanup_2:
-    if (closesocket(MainSocket) == SOCKET_ERROR)
-        printf("Failed to close MainSocket, error %ld. Ending program\n", WSAGetLastError());
+    if (event_file != NULL) {
+        CloseHandle(event_file);
+    }
+    if (event_thread[0] != NULL) {
+        CloseHandle(event_thread[0]);
+    }
+    if (event_thread[1] != NULL) {
+        CloseHandle(event_thread[1]);
+    }
+    if (file_mutex != NULL) {
+        CloseHandle(file_mutex);
+    }
     if (WSACleanup() == SOCKET_ERROR)
         printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
 }
