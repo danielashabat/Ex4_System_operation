@@ -152,7 +152,7 @@ int client(char  IP[10], int port, char  username[])
 			}
 			break;
 		case CLIENT_SETUP:
-			printf("Choose your guess:\n");
+			printf("Choose your 4 digits:\n");
 			scanf_s("%4s", user_move, (rsize_t)sizeof(user_move));
 			send_params[0] = user_move;
 			ret_val = SendMsg(client_socket, CLIENT_PLAYER_MOVE, send_params);
