@@ -9,7 +9,6 @@ Description –  this file implement the client main
 // Includes --------------------------------------------------------------------
 #include "message.h"
 #include "ClientFunctions.h"
-#include "client_main.h"
 
 
 #define USER_LEN 20
@@ -20,6 +19,10 @@ Description –  this file implement the client main
 	connected_to_server=0;\
     client_exit_status= RESULT;\
 }
+
+int client(char  IP[], int port, char  username[]);
+
+
 
 int main() {
 	char username[] = "daniela";
@@ -34,7 +37,7 @@ int main() {
 			break;
 		}
 		else if (status == DENIED) {
-			if (print_server_denied_menu(IP, port) == EXIT)
+			if (print_server_denied_menu(IP, port) == EXIT)//user chose exit
 				break;
 		}
 
@@ -48,7 +51,7 @@ int main() {
 	return 0;
 }
 
-int client(char  IP[10], int port, char  username[])
+int client(char  IP[], int port, char  username[])
 {
 	SOCKET client_socket;
 	SOCKADDR_IN clientService;
