@@ -11,7 +11,7 @@ Description –  this file implement the client main
 #include "ClientFunctions.h"
 
 
-#define USER_LEN 20
+#define USER_LEN 21
 #define EXIT 2
 
 #define CHECK_CONNECTION(RESULT) if (RESULT != TRNS_SUCCEEDED)\
@@ -24,8 +24,13 @@ int client(char  IP[], int port, char  username[]);
 
 
 
-int main() {
-	char username[] = "daniela";
+int main(char *argv[], int argc) {
+
+	if (argc != 2) {
+		printf("ERROR: not enough arguments!\n");
+	}
+	char username[USER_LEN] = {0};
+	strcpy_s(username, USER_LEN, argv[0]);
 	char IP[] = SERVER_ADDRESS_STR;
 	int port = SERVER_PORT;
 	int status = 0;
