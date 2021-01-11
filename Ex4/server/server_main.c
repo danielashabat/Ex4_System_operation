@@ -13,11 +13,11 @@
 /*-------------Define Varibles--------*/
 #define NUM_OF_WORKER_THREADS 2
 #define MAX_LOOPS 2
-#define USER_LEN 20
+#define USER_LEN 21
 #define USER_NAME_MSG 30
 #define SEND_STR_SIZE 100
 #define USER_TITLE 7
-#define GUESS 4
+#define GUESS 5//need to include '\0'
 
 #define CHECK_CONNECTION(RESULT) if (RESULT != TRNS_SUCCEEDED) connected_to_client=0;
 
@@ -151,6 +151,7 @@ int main() {
             }
             ret_val = CreateThreadSimple((LPTHREAD_START_ROUTINE)ServiceThread, ptr_to_thread, ThreadHandles+Ind);
             if (!ret_val) {
+                printf("ERRROR:create thread failed!\n");
                 goto server_main_cleanup_3;
             }
         }
@@ -158,7 +159,43 @@ int main() {
 
     }
 
-    
+   server_main_cleanup_final:
+
+    for (Ind = 0; Ind < NUM_OF_WORKER_THREADS; Ind++)
+    {
+        if (ThreadHandles[Ind] != NULL)
+        {
+            // poll to check if thread finished running:
+            DWORD Res = WaitForSingleObject(ThreadHandles[Ind], INFINITE);
+
+            if (Res == WAIT_OBJECT_0)
+            {
+                closesocket(ThreadInputs[Ind]);
+                CloseHandle(ThreadHandles[Ind]);
+                ThreadHandles[Ind] = NULL;
+                break;
+            }
+            else
+            {
+                printf("Waiting for thread failed. Ending program\n");
+                return;
+            }
+        }
+    }
+    if (event_file != NULL) {
+        CloseHandle(event_file);
+    }
+    if (event_thread[0] != NULL) {
+        CloseHandle(event_thread[0]);
+    }
+    if (event_thread[1] != NULL) {
+        CloseHandle(event_thread[1]);
+    }
+    if (file_mutex != NULL) {
+        CloseHandle(file_mutex);
+    }
+    if (WSACleanup() == SOCKET_ERROR)
+        printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
 /*---------------goto cleanup-------------------*/
 server_main_cleanup_1:
     if (WSACleanup() == SOCKET_ERROR)
@@ -198,43 +235,7 @@ server_main_cleanup_3:
     if (file != NULL) {
         CloseHandle(file);
     }
-server_main_cleanup_final:
 
-    for (Ind = 0; Ind < NUM_OF_WORKER_THREADS; Ind++)
-    {
-        if (ThreadHandles[Ind] != NULL)
-        {
-            // poll to check if thread finished running:
-            DWORD Res = WaitForSingleObject(ThreadHandles[Ind], INFINITE);
-
-            if (Res == WAIT_OBJECT_0)
-            {
-                closesocket(ThreadInputs[Ind]);
-                CloseHandle(ThreadHandles[Ind]);
-                ThreadHandles[Ind] = NULL;
-                break;
-            }
-            else
-            {
-                printf("Waiting for thread failed. Ending program\n");
-                return;
-            }
-        }
-    }
-    if (event_file != NULL) {
-        CloseHandle(event_file);
-    }
-    if (event_thread[0] != NULL) {
-        CloseHandle(event_thread[0]);
-    }
-    if (event_thread[1] != NULL) {
-        CloseHandle(event_thread[1]);
-    }
-    if (file_mutex != NULL) {
-        CloseHandle(file_mutex);
-    }
-    if (WSACleanup() == SOCKET_ERROR)
-        printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
 }
 
 
@@ -310,8 +311,11 @@ static DWORD ServiceThread(LPVOID lpParam) {
     file_mutex = p_params->file_mutex;
 
     int oppsite_ind = other_thread_ind(Ind, user_title, user_opposite_title);
+    if (INVALID_SOCKET == *t_socket)
+        printf("ERRROR:socket is invalid!\n");
 
     while (connected_to_client) {
+        printf("waiting to recieve message\n");
         RecvRes = RecieveMsg(*t_socket, &message_type, recieve_params, DEFUALT_TIMEOUT);
         if (!check_recv(RecvRes)) {
             printf("recieve string failed\n");
@@ -329,9 +333,9 @@ static DWORD ServiceThread(LPVOID lpParam) {
 
         case CLIENT_VERSUS:
             //search for another client 
-            //if found send SERVER_INVITE
-            clien_versus(user_title, user_name, user_opposite_title, oppsite_ind, Ind, oppsite_user_name,file_mutex);
-            send_params[0] = oppsite_user_name;
+            //clien_versus(user_title, user_name, user_opposite_title, oppsite_ind, Ind, oppsite_user_name,file_mutex);
+            //send_params[0] = oppsite_user_name;
+            send_params[0] = "anat";
             ret_val = SendMsg(*t_socket, SERVER_INVITE, send_params);
             CHECK_CONNECTION(ret_val);
             //printf("%s", SendStr);
@@ -350,10 +354,29 @@ static DWORD ServiceThread(LPVOID lpParam) {
             CHECK_CONNECTION(ret_val);
             break;
 
-       // case CLIENT_PLAYER_MOVE:
-            //strcpy_s(opponent_guess, GUESS, recieve_params[0]);
+        case CLIENT_PLAYER_MOVE:
+            strcpy_s(opponent_guess, GUESS, recieve_params[0]);
+
+            //calculate moves
             //client_move(Ind, opponent_guess, session_result, FALSE, user_title,user_opposite_title, oppsite_ind, user_number, file_mutex);
 
+            //if no winning, send results and play more moves 
+
+            //results example:
+            char bulls[2] = "1";
+            char cows[2] = "2";
+            char opponent_guess[GUESS] = "1234";
+            strcpy_s(oppsite_user_name, USER_LEN, "anat");
+            send_params[0] = bulls; send_params[1] = cows; send_params[2] = oppsite_user_name; send_params[3] = opponent_guess;
+            //example end
+
+            ret_val = SendMsg(*t_socket, SERVER_GAME_RESULTS, send_params);
+            CHECK_CONNECTION(ret_val);
+
+            //if no one won
+            ret_val = SendMsg(*t_socket, SERVER_PLAYER_MOVE_REQUEST, NULL);
+            CHECK_CONNECTION(ret_val);
+            break;
 
 
         case CLIENT_DISCONNECT:
@@ -362,12 +385,13 @@ static DWORD ServiceThread(LPVOID lpParam) {
             break;
 
         default:
+            printf("ERROR: this case don't exist in server\n");
             break;
         }
 
         free_params(recieve_params);
     }
-    return;
+    return 0;
    
 
 
@@ -486,7 +510,7 @@ BOOL file_handle(  HANDLE file_mutex) {
     // check if need to open file - protected by mutex;
     DWORD wait_code;
     BOOL ret_val;
-    char file_path[74] = "C:\\Users\\Anat\\source\\repos\\Ex4_System_operation\\Ex4\\Debug\\GameSession.txt";
+    char file_path[74] = "GameSession.txt";//daniela changed the path to relative path
     BOOL bErrorFlag = FALSE;
     DWORD lpNumberOfBytesWritten;
     LPDWORD* end_of_file_offset;
@@ -504,9 +528,10 @@ BOOL file_handle(  HANDLE file_mutex) {
         file = CreateFileA((LPCSTR)file_path,// file name 
             GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
         if (file == INVALID_HANDLE_VALUE)
-        {
+        {   
+            printf("ERROR:create file failed!\n");
             return FALSE;
-            printf("file is open\n");
+            
         }
     }
     else {
@@ -524,6 +549,9 @@ BOOL file_handle(  HANDLE file_mutex) {
     {
         printf("-ERROR: %d - release semaphore failed !\n", GetLastError());
         return FALSE;
+    }
+    else {
+        printf(" release mutex file handle succeed !\n");
     }
     return TRUE;
     

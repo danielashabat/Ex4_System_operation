@@ -24,6 +24,14 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 		//send user name
 		sprintf_s(msg, MSG_LEN, "CLIENT_REQUEST:%s\n", params[0]);
 		break;
+	
+	case CLIENT_VERSUS:
+		sprintf_s(msg, MSG_LEN, "CLIENT_VERSUS\n");
+		break;
+
+	case CLIENT_SETUP:
+		sprintf_s(msg, MSG_LEN, "CLIENT_SETUP:%s\n",params[0]);
+		break;
 
 	case SERVER_APPROVED:
 		sprintf_s(msg, MSG_LEN, "SERVER_APPROVED\n");//send to client approved
@@ -37,15 +45,11 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 		sprintf_s(msg, MSG_LEN, "SERVER_MAIN_MENU\n");
 		break;
 
-	case CLIENT_VERSUS:
-		sprintf_s(msg, MSG_LEN, "CLIENT_VERSUS\n");
-		break;
-
 	case CLIENT_DISCONNECT:
 		sprintf_s(msg, MSG_LEN, "CLIENT_DISCONNECT\n");
 		break;
 	case CLIENT_PLAYER_MOVE:
-		sprintf_s(msg, MSG_LEN, "CLIENT_PLAYER_MOVE\n");
+		sprintf_s(msg, MSG_LEN, "CLIENT_PLAYER_MOVE:%s\n", params[0]);
 		break;
 	case SERVER_SETUP_REQUEST:
 		sprintf_s(msg, MSG_LEN, "SERVER_SETUP_REQUEST\n");
@@ -57,9 +61,24 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 	case SERVER_PLAYER_MOVE_REQUEST:
 		sprintf_s(msg, MSG_LEN, "SERVER_PLAYER_MOVE_REQUEST\n");
 		break;
+
+	case SERVER_GAME_RESULTS:
+		sprintf_s(msg, MSG_LEN, "SERVER_GAME_RESULTS:%s;%s;%s;%s\n", params[0], params[1], params[2], params[3]);
+		break;
+
+	case SERVER_WIN:
+		sprintf_s(msg, MSG_LEN, "SERVER_WIN:%s;%s\n", params[0], params[1]);
+		break;
+
+	case SERVER_DRAW:
+		sprintf_s(msg, MSG_LEN, "SERVER_DRAW\n");
+		break;
+
+	case SERVER_OPPONENT_QUIT:
+		sprintf_s(msg, MSG_LEN, "SERVER_OPPONENT_QUIT\n");
+		break;
 	default:
-		printf("ERROR:The message type is not valid!\n");
-		return 1;
+		IS_FAIL(TRNS_FAILED,"ERROR:The message type is not valid!\n");
 		break;
 	}
 	//send message
@@ -88,7 +107,7 @@ DWORD RecieveMsg(SOCKET socket, int *message_type, char ** params, int timeout) 
 	int rv = select(socket+1, &set, NULL, NULL, &time_out);
 	if (rv == SOCKET_ERROR||rv==0)
 	{
-		IS_FAIL(TRNS_FAILED, "ERROR: Socket connection d\n")
+		IS_FAIL(TRNS_FAILED, "ERROR: Socket connection disconnected\n")
 	}
 
 	RecvRes = ReceiveString(&AcceptedStr, socket);
@@ -97,15 +116,22 @@ DWORD RecieveMsg(SOCKET socket, int *message_type, char ** params, int timeout) 
 	IS_FAIL(RecvRes, "RecieveString from server failed\n");
 	printf("RecieveString from server succeed the message is: %s", AcceptedStr);
 
-	//find the message type
 	if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_REQUEST")) {
 		*message_type = CLIENT_REQUEST;
 		inputs = 1;
-		printf("message type is: CLIENT_REQUEST\n");
 	}
 
-	else if (check_if_message_type_instr_message(AcceptedStr, "SERVER_MAIN_MENU") ){
-		*message_type = SERVER_MAIN_MENU ;
+	else if (check_if_message_type_instr_message(AcceptedStr, "SERVER_MAIN_MENU")) {
+		*message_type = SERVER_MAIN_MENU;
+	}
+
+	else if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_SETUP") ){
+		*message_type = CLIENT_SETUP;
+		inputs = 1;
+	}
+	else if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_PLAYER_MOVE")) {
+		*message_type = CLIENT_PLAYER_MOVE;
+		inputs = 1;
 	}
 	else if (check_if_message_type_instr_message(AcceptedStr, "SERVER_APPROVED")) {
 		*message_type = SERVER_APPROVED;
@@ -122,12 +148,27 @@ DWORD RecieveMsg(SOCKET socket, int *message_type, char ** params, int timeout) 
 	}
 	else if (check_if_message_type_instr_message(AcceptedStr, "SERVER_INVITE")) {
 		*message_type = SERVER_INVITE;
+		inputs = 1;
 	}
 	else if (check_if_message_type_instr_message(AcceptedStr, "SERVER_SETUP_REQUEST")) {
 		*message_type = SERVER_SETUP_REQUEST;
 	}
 	else if (check_if_message_type_instr_message(AcceptedStr, "SERVER_PLAYER_MOVE_REQUEST")) {
 		*message_type = SERVER_PLAYER_MOVE_REQUEST;
+	}
+	else if (check_if_message_type_instr_message(AcceptedStr, "SERVER_GAME_RESULTS")) {
+		*message_type = SERVER_GAME_RESULTS;
+		inputs = 4;
+	}
+	else if (check_if_message_type_instr_message(AcceptedStr, "SERVER_WIN")) {
+		*message_type = SERVER_WIN;
+		inputs = 2;
+	}
+	else if (check_if_message_type_instr_message(AcceptedStr, "SERVER_DRAW")) {
+		*message_type = SERVER_DRAW;
+	}
+	else if (check_if_message_type_instr_message(AcceptedStr, "SERVER_OPPONENT_QUIT")) {
+		*message_type = SERVER_OPPONENT_QUIT;
 	}
 
 	else {
@@ -136,10 +177,7 @@ DWORD RecieveMsg(SOCKET socket, int *message_type, char ** params, int timeout) 
 
 	//if paramters sent in the msg, allocate it in params
 	if (inputs > 0) {
-		printf("inputs is: %d\n",inputs);
 		get_params(AcceptedStr,inputs,params);
-		printf("param[0]= %s\n",params[0]);
-		
 	}
 
 	free(AcceptedStr);
@@ -188,7 +226,6 @@ void get_params(char msg[], int inputs, char** params) {
 		return;
 		}
 		strcpy_s(params[i], (strlen(temp) + 1),temp);//copy param to params array
-		
 		msg_inputs = NULL;
 		i++;
 	}

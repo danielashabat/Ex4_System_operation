@@ -156,12 +156,32 @@ int client(char  IP[], int port, char  username[])
 			break;
 		case SERVER_SETUP_REQUEST:
 			printf("Choose your 4 digits:\n");
-			scanf_s("%4s", user_move, (rsize_t)sizeof(user_move));
-			
-			
+			scanf_s("%4s", &user_move, (rsize_t)sizeof(user_move));
+			send_params[0] = user_move;
 			ret_val = SendMsg(client_socket, CLIENT_SETUP, send_params);
 			CHECK_CONNECTION(ret_val);
 			break;
+
+		case SERVER_PLAYER_MOVE_REQUEST:
+			printf("Choose your guess:\n");
+			scanf_s("%4s", &user_move, (rsize_t)sizeof(user_move));
+			send_params[0] = user_move;
+			ret_val = SendMsg(client_socket, CLIENT_PLAYER_MOVE, send_params);
+			CHECK_CONNECTION(ret_val);
+			break;
+
+		case SERVER_GAME_RESULTS:
+			print_result(recieve_params[0], recieve_params[1], recieve_params[2], recieve_params[3]);
+			break;
+
+		case SERVER_WIN:
+			printf("%s won!\n", recieve_params[0]);
+			printf("opponents number was %s\n", recieve_params[1]);
+			break;
+
+		case SERVER_DRAW:
+			printf("It’s a tie\n");
+				break;
 
 		}
 		if (connected_to_server) {
