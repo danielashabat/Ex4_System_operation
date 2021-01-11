@@ -32,7 +32,7 @@ int main(int argc , char* argv[]) {
 	}
 
 	char username[USER_LEN] = {0};
-	strcpy_s(username, USER_LEN, argv[0]);
+	strcpy_s(username, USER_LEN, argv[1]);
 	char IP[] = SERVER_ADDRESS_STR;
 	int port = SERVER_PORT;
 	int status = 0;
