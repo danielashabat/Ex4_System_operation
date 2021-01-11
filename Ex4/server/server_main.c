@@ -22,7 +22,9 @@
 #define CHECK_CONNECTION(RESULT) if (RESULT != TRNS_SUCCEEDED) connected_to_client=0;
 
 HANDLE event_thread[NUM_OF_WORKER_THREADS];
+HANDLE event_thread_end_reading[NUM_OF_WORKER_THREADS];
 HANDLE event_file= NULL;
+HANDLE close_file_event = NULL;
 HANDLE file = NULL;
 HANDLE ThreadHandles[NUM_OF_WORKER_THREADS];
 SOCKET ThreadInputs[NUM_OF_WORKER_THREADS];
@@ -145,7 +147,8 @@ int main() {
 
             printf("creating thread\n");
             ThreadInputs[Ind] = AcceptSocket;
-            ret_val = Create_Thread_data(&AcceptSocket, Ind,file_mutex,&ptr_to_thread);
+            ret_val = Create_Thread_data(&(ThreadInputs[Ind]), Ind,file_mutex,&ptr_to_thread);
+            printf("%d", AcceptSocket);
             if (!ret_val) {
                 goto server_main_cleanup_3;
             }
@@ -284,6 +287,7 @@ static DWORD ServiceThread(LPVOID lpParam) {
     int Ind;
     char user_number[GUESS] = { 0 };
     char opponent_guess[GUESS] = { 0 };
+    char your_guess[GUESS] = { 0 };
     char session_result[USER_NAME_MSG] = { 0 };
     char user_title[USER_TITLE] = { 0 };
     char user_opposite_title[USER_TITLE] = { 0 };
@@ -292,8 +296,8 @@ static DWORD ServiceThread(LPVOID lpParam) {
     char* AcceptedStr = NULL;
     char user_name[USER_LEN] = { 0 };
     char oppsite_user_name[USER_NAME_MSG]= { 0 };
-    int cows;
-    int bulls;
+    char cows[GUESS] = { 0 };
+    char bulls[GUESS] = { 0 };
     int state = CLIENT_REQUEST;
 
     int message_type = CLIENT_REQUEST;
@@ -301,7 +305,7 @@ static DWORD ServiceThread(LPVOID lpParam) {
     char* recieve_params[MAX_PARAMS] = { NULL };
     int connected_to_client = 1;
     int ret_val;
-
+    char oppsite_user_name_with_title[30] = {0};
 
     //get thread params
     ThreadData* p_params;
@@ -313,7 +317,8 @@ static DWORD ServiceThread(LPVOID lpParam) {
     int oppsite_ind = other_thread_ind(Ind, user_title, user_opposite_title);
     if (INVALID_SOCKET == *t_socket)
         printf("ERRROR:socket is invalid!\n");
-
+    else
+        printf("%d", t_socket);
     while (connected_to_client) {
         printf("waiting to recieve message\n");
         RecvRes = RecieveMsg(*t_socket, &message_type, recieve_params, DEFUALT_TIMEOUT);
@@ -333,9 +338,10 @@ static DWORD ServiceThread(LPVOID lpParam) {
 
         case CLIENT_VERSUS:
             //search for another client 
-            //clien_versus(user_title, user_name, user_opposite_title, oppsite_ind, Ind, oppsite_user_name,file_mutex);
-            //send_params[0] = oppsite_user_name;
-            send_params[0] = "anat";
+            clien_versus(user_title, user_name, user_opposite_title, oppsite_ind, Ind, oppsite_user_name,file_mutex);
+            printf("%s", oppsite_user_name);
+            send_params[0] = oppsite_user_name;
+            //send_params[0] = "anat";
             ret_val = SendMsg(*t_socket, SERVER_INVITE, send_params);
             CHECK_CONNECTION(ret_val);
             //printf("%s", SendStr);
@@ -355,17 +361,17 @@ static DWORD ServiceThread(LPVOID lpParam) {
             break;
 
         case CLIENT_PLAYER_MOVE:
-            strcpy_s(opponent_guess, GUESS, recieve_params[0]);
+            strcpy_s(your_guess, GUESS, recieve_params[0]);
 
             //calculate moves
-            //client_move(Ind, opponent_guess, session_result, FALSE, user_title,user_opposite_title, oppsite_ind, user_number, file_mutex);
+            client_move(Ind, your_guess, session_result, FALSE, user_title,user_opposite_title, oppsite_ind, user_number, file_mutex , bulls,cows ,opponent_guess);
 
             //if no winning, send results and play more moves 
 
             //results example:
-            char bulls[2] = "1";
-            char cows[2] = "2";
-            char opponent_guess[GUESS] = "1234";
+           // char bulls[2] = "1";
+           // char cows[2] = "2";
+            //char opponent_guess[GUESS] = "1234";
             strcpy_s(oppsite_user_name, USER_LEN, "anat");
             send_params[0] = bulls; send_params[1] = cows; send_params[2] = oppsite_user_name; send_params[3] = opponent_guess;
             //example end
@@ -467,7 +473,7 @@ BOOL create_mutexs_and_events() {
         NULL,               // default security attributes
         TRUE,               // manual-reset event
         FALSE,              // initial state is nonsignaled
-        TEXT("First_thread")  // object name
+        TEXT("First_threadWrite")  // object name
     );
 
     if (event_thread[0] == NULL)
@@ -480,7 +486,7 @@ BOOL create_mutexs_and_events() {
         NULL,               // default security attributes
         TRUE,               // manual-reset event
         FALSE,              // initial state is nonsignaled
-        TEXT("Second_thread")  // object name
+        TEXT("Second_threadWrite")  // object name
     );
 
     if (event_thread[1] == NULL)
@@ -489,6 +495,31 @@ BOOL create_mutexs_and_events() {
         return FALSE;
     }
 
+    event_thread_end_reading[0] = CreateEvent(
+        NULL,               // default security attributes
+        TRUE,               // manual-reset event
+        FALSE,              // initial state is nonsignaled
+        TEXT("First_threadRead")  // object name
+    );
+
+    if (event_thread_end_reading[0] == NULL)
+    {
+        printf("CreateEvent failed (%d)\n", GetLastError());
+        return FALSE;
+    }
+
+    event_thread_end_reading[1] = CreateEvent(
+        NULL,               // default security attributes
+        TRUE,               // manual-reset event
+        FALSE,              // initial state is nonsignaled
+        TEXT("Second_threadRead")  // object name
+    );
+
+    if (event_thread_end_reading[1] == NULL)
+    {
+        printf("CreateEvent failed (%d)\n", GetLastError());
+        return FALSE;
+    }
     event_file = CreateEvent(
         NULL,               // default security attributes
         TRUE,               // manual-reset event
@@ -501,8 +532,19 @@ BOOL create_mutexs_and_events() {
         printf("CreateEvent failed (%d)\n", GetLastError());
         return FALSE;
     }
+    
+    close_file_event = CreateEvent(
+            NULL,               // default security attributes
+            TRUE,               // manual-reset event
+            FALSE,              // initial state is nonsignaled
+            TEXT("Close_Event")  // object name
+        );
 
-
+    if (close_file_event == NULL)
+    {
+        printf("CreateEvent failed (%d)\n", GetLastError());
+        return FALSE;
+    }
     return TRUE;
 }
 
@@ -525,8 +567,9 @@ BOOL file_handle(  HANDLE file_mutex) {
     printf("enter mutex \n");
     //critical section- check if queue is not empty and pop the mission 
     if (file == NULL) {
+        ResetEvent(close_file_event);
         file = CreateFileA((LPCSTR)file_path,// file name 
-            GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+            GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
         if (file == INVALID_HANDLE_VALUE)
         {   
             printf("ERROR:create file failed!\n");
@@ -540,6 +583,7 @@ BOOL file_handle(  HANDLE file_mutex) {
         //SetFilePointer(file, end_of_file_offset, NULL, FILE_BEGIN); 
         //WriteFile(file, user_name, strlen(user_name), &lpNumberOfBytesWritten, NULL);
         SetEvent(event_file);
+       
     }
     //end of critical section 
     //*Release queue mutex
@@ -643,6 +687,7 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
         printf("get_param_succseed\n");
         sprintf_s(message_from_file, USER_NAME_MSG, "%s", param);
         printf("oppsinte name %s\n", message_from_file);
+        SetEvent(event_thread_end_reading[Ind]);
     }
    
     ret_val = ReleaseMutex(file_mutex);
@@ -651,7 +696,23 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
         printf("-ERROR: %d - release mutex failed !\n", GetLastError());
         return FALSE;
     }
-
+    dwWaitResultOtherClient = WaitForSingleObject(
+        event_thread_end_reading[oppsite_ind], // event handle
+        INFINITE);
+    if (WAIT_OBJECT_0 != dwWaitResultOtherClient)
+    {
+        printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
+        return FALSE;
+    }    // indefinite wait
+    close_file_handle(file_mutex);
+    dwWaitResultOtherClient = WaitForSingleObject(
+        close_file_event, // event handle
+        INFINITE);
+    if (WAIT_OBJECT_0 != dwWaitResultOtherClient)
+    {
+        printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
+        return FALSE;
+    }    // indefinite wait
 }
 
 
@@ -712,15 +773,16 @@ BOOL clien_versus(char* user_title,char* user_name, char* user_opposite_title,in
     strcat_s(message_to_file, USER_NAME_MSG, "\n\r");
     game_session(Ind, message_to_file, oppsite_user_name, TRUE, user_title, user_opposite_title, oppsite_ind, file_mutex);
     ResetEvent(event_thread[Ind]);
-    printf("oppsinte name %s\n", oppsite_user_name);
-    close_file_handle(file_mutex);
+    ResetEvent(event_thread_end_reading[Ind]);
+    printf("oppsinte name %s%s \n", oppsite_user_name, user_title);
+   
 }
 
-BOOL client_move(int Ind, char* opponent_guess, char* message_from_file, BOOL users_name_flag,
+BOOL client_move(int Ind, char* your_guess, char* message_from_file, BOOL users_name_flag,
     char* user_title, char* user_opposite_title, int oppsite_ind,char* your_number
-    , HANDLE file_mutex) {
-    int cows;
-    int bulls;
+    , HANDLE file_mutex , char* bulls, char* cows , char* opponent_guess) {
+    int cows_calculate;
+    int bulls_calculate;
     DWORD retval;
     DWORD dwWaitResultFile;
 
@@ -737,13 +799,16 @@ BOOL client_move(int Ind, char* opponent_guess, char* message_from_file, BOOL us
     char guess_message_to_file[USER_NAME_MSG] = { 0 };
     char cows_and_bulls[USER_NAME_MSG] = { 0 };
     char cows_and_bulls_message_to_file[USER_NAME_MSG] = { 0 };
-    sprintf_s(guess_message_to_file, USER_NAME_MSG, "%s%s\n\r", user_title, opponent_guess);
+    sprintf_s(guess_message_to_file, USER_NAME_MSG, "%s%s\n\r", user_title, your_guess);
     game_session(Ind, guess_message_to_file, message_from_file, FALSE, user_title, user_opposite_title, oppsite_ind, file_mutex);
+    sprintf_s(opponent_guess, GUESS, "%s", message_from_file);
     ResetEvent(event_thread[Ind]);
-    close_file_handle(file_mutex);
-    get_bulls_and_cows(your_number, message_from_file, &cows, &bulls);
-    sprintf_s(cows_and_bulls, USER_NAME_MSG, "%d,%d", bulls, cows);
+    ResetEvent(event_thread_end_reading[Ind]);
+    
+    get_bulls_and_cows(your_number, message_from_file, &cows_calculate, &bulls_calculate);
+    sprintf_s(cows_and_bulls, USER_NAME_MSG, "%d,%d", bulls_calculate, cows_calculate);
     sprintf_s(cows_and_bulls_message_to_file, USER_NAME_MSG, "%s%s\n\r", user_title, cows_and_bulls);
+
     retval = file_handle(file_mutex);
     printf("waiting for other playar\n");
     dwWaitResultFile = WaitForSingleObject(
@@ -755,8 +820,11 @@ BOOL client_move(int Ind, char* opponent_guess, char* message_from_file, BOOL us
         return FALSE;
     }
     game_session(Ind, cows_and_bulls_message_to_file, message_from_file, FALSE, user_title, user_opposite_title, oppsite_ind, file_mutex);
+    sprintf_s(bulls, 5, "%c", message_from_file[0]);
+    sprintf_s(cows, 5, "%c", message_from_file[2]);
+    
     ResetEvent(event_thread[Ind]);
-    close_file_handle(file_mutex);
+    ResetEvent(event_thread_end_reading[Ind]);
     
 
 }
@@ -833,10 +901,10 @@ BOOL close_file_handle(HANDLE file_mutex) {
     // check if need to open file - protected by mutex;
     DWORD wait_code;
     BOOL ret_val;
+    char file_path[74] = { 0 };
     
     
-    
-    
+       
     
     /* Create the mutex that will be used to synchronize access to queue */
     wait_code = WaitForSingleObject(file_mutex, INFINITE);
@@ -848,12 +916,16 @@ BOOL close_file_handle(HANDLE file_mutex) {
     printf("enter mutex \n");
     //critical section- check if queue is not empty and pop the mission 
     if (file != NULL) {
+        sprintf_s(file_path, 74, "%s", "GameSession.txt");
+        
         CloseHandle(file);
+        ResetEvent(event_file);
         file = NULL;
+        printf("file is null");
     }
     else {
+        SetEvent(close_file_event);
         
-        ResetEvent(event_file);
     }
     //end of critical section 
     //*Release queue mutex
