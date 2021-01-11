@@ -107,7 +107,7 @@ int main() {
     for (Ind = 0; Ind < NUM_OF_WORKER_THREADS; Ind++)
         ThreadHandles[Ind] = NULL;
     ret_val = create_mutexs_and_events();
-
+    //anat
     file_mutex = CreateMutex(
         NULL,	/* default security attributes */
         FALSE,	/* initially not owned */
