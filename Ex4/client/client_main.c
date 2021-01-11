@@ -24,11 +24,12 @@ int client(char  IP[], int port, char  username[]);
 
 
 
-int main(char *argv[], int argc) {
+int main(int argc , char* argv[]) {
 
 	if (argc != 2) {
-		printf("ERROR: not enough arguments!\n");
+		printf("ERROR:there is %d arguments, need to be 2!\n", argc);
 	}
+
 	char username[USER_LEN] = {0};
 	strcpy_s(username, USER_LEN, argv[0]);
 	char IP[] = SERVER_ADDRESS_STR;
