@@ -28,6 +28,7 @@ int main(int argc , char* argv[]) {
 
 	if (argc != 2) {
 		printf("ERROR:there is %d arguments, need to be 2!\n", argc);
+		return 0;
 	}
 
 	char username[USER_LEN] = {0};
