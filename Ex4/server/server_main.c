@@ -140,21 +140,6 @@ int main() {
 
     while (program_running)
     {
-       //char c;
-       //char exit_arr[4] = { 'e','x','i','t' };
-
-       //if (_kbhit()) {
-       //    c = _getch();
-       //    if (c == exit_arr[i])
-       //        i++;
-       //    else
-       //        i = 0;
-       //    }
-       //if (i == 4)
-       //    program_running = 0;
-       //
-       //if (!program_running) break;//end program 
-
         /*check for new connection*/
         fd_set set;
         struct timeval time_out;
