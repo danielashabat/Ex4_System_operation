@@ -13,7 +13,6 @@
 DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 	TransferResult_t SendRes;
 	char msg[MSG_LEN];
-	//messages send in this frame: "<message_type>:<param_list>\n"
 
 	//printf("message_type:%d\n", message_type);
 
@@ -77,6 +76,9 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 	case SERVER_OPPONENT_QUIT:
 		sprintf_s(msg, MSG_LEN, "SERVER_OPPONENT_QUIT\n");
 		break;
+	case SERVER_NO_OPPONENTS:
+		sprintf_s(msg, MSG_LEN, "SERVER_NO_OPPONENTS\n");
+		break;
 	default:
 		IS_FAIL(TRNS_FAILED,"ERROR:The message type is not valid!\n");
 		break;
@@ -84,7 +86,7 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 	//send message
 	SendRes = SendString(msg, socket);
 	IS_FAIL(SendRes, "Socket error while trying to write data to socket\n");
-	printf("-client info- succeed sent messeage: %s ", msg);
+	printf("-info- succeed sent messeage: %s", msg);
 	return TRNS_SUCCEEDED;
 }
 
@@ -169,6 +171,9 @@ DWORD RecieveMsg(SOCKET socket, int *message_type, char ** params, int timeout) 
 	}
 	else if (check_if_message_type_instr_message(AcceptedStr, "SERVER_OPPONENT_QUIT")) {
 		*message_type = SERVER_OPPONENT_QUIT;
+	}
+	else if (check_if_message_type_instr_message(AcceptedStr, "SERVER_NO_OPPONENTS")) {
+		*message_type = SERVER_NO_OPPONENTS;
 	}
 
 	else {

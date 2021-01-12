@@ -2,15 +2,22 @@
 #define CLIENT_FUNCTIONS_H
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 // Includes --------------------------------------------------------------------
 
 #include <stdio.h>
 #include <stdlib.h> 
 #include <string.h>
-//#include <Windows.h>
+#include <Windows.h>
 #include <winsock2.h>
+#include <WS2tcpip.h>
 #include "SocketShared.h"
 #include "SocketSendRecvTools.h"
+
+#pragma comment(lib,"Ws2_32.lib")
 
 // Macros --------------------------------------------------------------------
 #define END_PROGRAM 16

@@ -18,6 +18,7 @@ Description –  this file implement the client main
 {\
 	connected_to_server=0;\
     client_exit_status= RESULT;\
+	break;\
 }
 
 int client(char  IP[], int port, char  username[]);
@@ -145,6 +146,7 @@ int client(char  IP[], int port, char  username[])
 			break;
 		case SERVER_INVITE:
 			printf("Game is on!\n");
+			Sleep(2000);
 			break;
 
 		case SERVER_NO_OPPONENTS:
@@ -179,16 +181,24 @@ int client(char  IP[], int port, char  username[])
 
 		case SERVER_GAME_RESULTS:
 			print_result(recieve_params[0], recieve_params[1], recieve_params[2], recieve_params[3]);
+			Sleep(2000);
 			break;
 
 		case SERVER_WIN:
 			printf("%s won!\n", recieve_params[0]);
 			printf("opponents number was %s\n", recieve_params[1]);
+			Sleep(2000);
 			break;
 
 		case SERVER_DRAW:
-			printf("It’s a tie\n");
+			printf("It's a tie\n");
+			Sleep(2000);
 				break;
+
+		case SERVER_OPPONENT_QUIT:
+			printf("Opponent quit.");
+			Sleep(2000);
+			break;
 
 		}
 		if (connected_to_server) {
