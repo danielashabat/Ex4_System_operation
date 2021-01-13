@@ -956,6 +956,7 @@ BOOL read_from_pointer_in_file(int offset, char* buffer) {
     }
     bResult = ReadFile(file, buffer_to_read, nBytesToRead, &dwBytesRead, NULL);
     if (!bResult) {
+        free(buffer_to_read);
         printf("READ from tasks file NOT success!");
         return FALSE;
     }
