@@ -983,6 +983,19 @@ BOOL reset_game(SOCKET socket) {
     BOOL retval;
     retval = ResetEvent(opponent_failed);
     if (!retval) return FALSE;
+    retval = ResetEvent(event_thread[0]);
+    if (!retval) return FALSE;
+    retval = ResetEvent(event_thread[1]);
+    if (!retval) return FALSE;
+    retval = ResetEvent(event_thread_end_reading[0]);
+    if (!retval) return FALSE;
+    retval = ResetEvent(event_thread_end_reading[1]);
+    if (!retval) return FALSE;
+    retval = ResetEvent(close_file_event);
+    if (!retval) return FALSE;
+    retval = ResetEvent(event_file);
+    if (!retval) return FALSE;
+
     ret_val = SendMsg(socket, SERVER_OPPONENT_QUIT, NULL);
     if (ret_val != TRNS_SUCCEEDED) {
         return FALSE;
