@@ -307,8 +307,6 @@ int open_threads()
 }
 
 
-/*this function checks if any of the threads terminated with a failure
-if fail found the function returns TRUE, otherwise returns FALSE*/
 BOOL service_thread_failed() {
     DWORD Res = 0;
     for (int Ind = 0; Ind < NUM_OF_WORKER_THREADS; Ind++) {
@@ -527,10 +525,16 @@ static DWORD ServiceThread(LPVOID lpParam) {
             if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
             //ret_val=client_move(Ind, your_guess, session_result, FALSE, user_title, user_opposite_title, oppsite_ind, user_number, file_mutex, bulls, cows, opponent_guess, );
             //IS_FALSE(ret_val, "client_move failed\n");
+            if (recieve_params[0] != NULL) {
+                char* p = recieve_params[0];
+                strcpy_s(user_number, GUESS, recieve_params[0]);
+            }
+            
             ret_val = get_opponent_number(Ind, user_title, user_opposite_title, oppsite_ind, file_mutex, opponent_number, user_number,&oponnent_alive);
+            printf("%s", opponent_number);
             if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
             IS_FALSE(ret_val, "get_opponent_number failed\n");
-            strcpy_s(user_number, GUESS, recieve_params[0]);
+            
             ret_val_connection = SendMsg(*t_socket, SERVER_PLAYER_MOVE_REQUEST, NULL);
             CHECK_CONNECTION(ret_val_connection);
             printf("the opponent number is: %s\n", opponent_number);
@@ -540,8 +544,11 @@ static DWORD ServiceThread(LPVOID lpParam) {
             ret_val = wait_for_another_client(Ind, oppsite_ind, &oponnent_alive);
             IS_FALSE(ret_val, "wait_for_another_client failed\n");
             if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
+            if (recieve_params[0] != NULL) {
+                char* p = recieve_params[0];
+                strcpy_s(your_guess, GUESS, recieve_params[0]);
 
-            strcpy_s(your_guess, GUESS, recieve_params[0]);
+            }
             //calculate moves
             ret_val = client_move(Ind, your_guess, session_result, FALSE, user_title,user_opposite_title, oppsite_ind, user_number, file_mutex , bulls,cows ,opponent_guess, &oponnent_alive);
             IS_FALSE(ret_val, "client_move failed\n");
@@ -1189,16 +1196,7 @@ BOOL get_param_from_file(char* string_from_file, char* param, int start_point, c
     return TRUE;
 }
 
-/*
-*get_bulls_and_cows assigns to bullsand cows the results
-*
-* Accepts:
-*------ -
-*guess - pointer to string
-* opponent_digits - pointer to string
-* bulls - pointer to int
-* cows - pointer to int
-*/
+
 void get_bulls_and_cows(char* guess, char* opponent_digits, int* cows, int* bulls) {
     int digits[10] = { 0 };
     int i = 0;
@@ -1291,6 +1289,7 @@ BOOL get_opponent_number(int Ind, char* user_title, char* user_opposite_title, i
     int opponent_alive_from_function = 1;
     retval = file_handle(file_mutex);
     if (!retval) return FALSE;
+
     printf("waiting for other player\n");
     retval = wait_for_client_answer(&opponent_alive_from_function, 1, oppsite_ind);
     *opponent_alive = opponent_alive_from_function;
