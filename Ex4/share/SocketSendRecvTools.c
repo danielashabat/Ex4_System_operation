@@ -81,7 +81,7 @@ TransferResult_t SendBuffer( const char* Buffer, int BytesToSend, SOCKET sd )
 		if ( BytesTransferred == SOCKET_ERROR ) 
 		{
 			printf("send() failed, error %d\n", WSAGetLastError() );
-			return TRNS_FAILED;
+			return TRNS_DISCONNECTED;
 		}
 		
 		RemainingBytesToSend -= BytesTransferred;
@@ -134,7 +134,7 @@ TransferResult_t ReceiveBuffer( char* OutputBuffer, int BytesToReceive, SOCKET s
 		if ( BytesJustTransferred == SOCKET_ERROR ) 
 		{
 			printf("recv() failed, error %d\n", WSAGetLastError() );
-			return TRNS_FAILED;
+			return TRNS_DISCONNECTED;
 		}		
 		else if ( BytesJustTransferred == 0 )
 			return TRNS_DISCONNECTED; // recv() returns zero if connection was gracefully disconnected.

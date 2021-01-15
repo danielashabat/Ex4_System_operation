@@ -172,6 +172,7 @@ int client(char  IP[], int port, char  username[])
 			send_params[0] = user_move;
 			ret_val = SendMsg(client_socket, CLIENT_SETUP, send_params);
 			CHECK_CONNECTION(ret_val);
+			timeout = TEN_MIN;
 			break;
 
 		case SERVER_PLAYER_MOVE_REQUEST:
@@ -180,6 +181,7 @@ int client(char  IP[], int port, char  username[])
 			send_params[0] = user_move;
 			ret_val = SendMsg(client_socket, CLIENT_PLAYER_MOVE, send_params);
 			CHECK_CONNECTION(ret_val);
+			timeout = TEN_MIN;
 			break;
 
 		case SERVER_GAME_RESULTS:
@@ -199,7 +201,7 @@ int client(char  IP[], int port, char  username[])
 				break;
 
 		case SERVER_OPPONENT_QUIT:
-			printf("Opponent quit.");
+			printf("Opponent quit.\n");
 			Sleep(2000);
 			break;
 
