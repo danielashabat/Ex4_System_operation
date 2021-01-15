@@ -522,7 +522,7 @@ static DWORD ServiceThread(LPVOID lpParam) {
             if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
             if (recieve_params[0] != NULL) {
                 char* p = recieve_params[0];
-                strcpy_s(user_number, GUESS, recieve_params[0]);
+                strcpy_s(user_number, GUESS, p);
             }
             
             ret_val = get_opponent_number(Ind, user_title, user_opposite_title, oppsite_ind, file_mutex, opponent_number, user_number,&oponnent_alive);
@@ -539,7 +539,7 @@ static DWORD ServiceThread(LPVOID lpParam) {
             if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
             if (recieve_params[0] != NULL) {
                 char* p = recieve_params[0];
-                strcpy_s(your_guess, GUESS, recieve_params[0]);
+                strcpy_s(your_guess, GUESS, p);
 
             }
             //calculate moves
