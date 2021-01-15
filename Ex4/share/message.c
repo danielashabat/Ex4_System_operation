@@ -184,7 +184,7 @@ DWORD RecieveMsg(SOCKET socket, int *message_type, char ** params, int timeout) 
 	if (inputs > 0) {
 		get_params(AcceptedStr,inputs,params);
 	}
-
+	
 	free(AcceptedStr);
 	return TRNS_SUCCEEDED;
 

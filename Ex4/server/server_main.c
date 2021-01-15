@@ -30,6 +30,7 @@
 #define IS_FALSE(RESULT,MSG) if (RESULT != TRUE)\
 {\
     printf("function:[%s line:%d] %s\n", __func__,__LINE__,MSG);\
+    SetEvent(opponent_failed);\
     connected_to_client=0; break;\
 }
 
@@ -37,6 +38,7 @@ HANDLE event_thread[NUM_OF_WORKER_THREADS];
 HANDLE event_thread_end_reading[NUM_OF_WORKER_THREADS];
 HANDLE event_file= NULL;
 HANDLE close_file_event = NULL;
+HANDLE opponent_failed = NULL;
 HANDLE file = NULL;
 HANDLE connected_clients_mutex = NULL;
 HANDLE ThreadHandles[NUM_OF_WORKER_THREADS];
@@ -46,28 +48,20 @@ int connected_clients;
 
 /* -------------main------------------*/
 
-int other_thread_ind(int Ind, char* user_name, char* oppsite_user_name);
-BOOL  CreateThreadSimple(LPTHREAD_START_ROUTINE p_start_routine,
-    LPVOID p_thread_parameters, HANDLE * thread_handle);
-BOOL Create_Thread_data(SOCKET * socket, int num_of_thread, HANDLE file_mutex, ThreadData * *ptr_to_thread_data);
-BOOL file_handle(HANDLE file_mutex);
-static DWORD ServiceThread(LPVOID lpParam);
-BOOL create_mutexs_and_events();
-BOOL game_session(int Ind, char* message_to_file, char* message_from_file, BOOL users_name_flag, char* user_title, char* user_opposite_title, int oppsite_ind, HANDLE file_mutex);
-BOOL clien_versus(char* user_title, char* user_name, char* user_opposite_title, int oppsite_ind, int Ind, char* oppsite_user_name, HANDLE file_mutex);
-void get_bulls_and_cows(char* guess, char* opponent_digits, int* cows, int* bulls);
-BOOL close_file_handle(HANDLE file_mutex);
-BOOL get_round_result(int Ind, char* user_title, char* user_opposite_title, int oppsite_ind, HANDLE file_mutex, char* bulls, int* round_result, int* message_type_to_send);
-BOOL disconnect_client();
-BOOL wait_for_another_client(int Ind, int oppsite_ind, int* oponnent_alive);
-void close_event_and_mutex(HANDLE file_mutex);
-void close_thread_and_sockets();
-BOOL get_param_from_file(char* string_from_file, char* param, int start_point, char* user_opposite_title);
 
 
 
 
-int main() {
+
+int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        printf("ERROR:there is %d arguments, need to be 2!\n", argc);
+        return 1;
+    }
+
+    int port = 0;
+    port = atoi(argv[1]);
+    
     int Ind;
     SOCKET MainSocket = INVALID_SOCKET;
     unsigned long Address;
@@ -111,7 +105,7 @@ int main() {
 
     service.sin_family = AF_INET;
     service.sin_addr.s_addr = Address;
-    service.sin_port = htons(SERVER_PORT);
+    service.sin_port = htons(port);
     /*bind*/
 
     bindRes = bind(MainSocket, (SOCKADDR*)&service, sizeof(service));
@@ -314,6 +308,9 @@ void close_event_and_mutex(HANDLE file_mutex) {
     if (close_file_event != NULL) {
         CloseHandle(close_file_event);
     }
+    if (opponent_failed != NULL) {
+        CloseHandle(opponent_failed);
+    }
    
     
     
@@ -420,7 +417,14 @@ static DWORD ServiceThread(LPVOID lpParam) {
         switch (message_type)
         {
         case CLIENT_REQUEST://get user name from client
-            strcpy_s(user_name, USER_LEN, recieve_params[0]);
+            if (recieve_params[0] != NULL) {
+                char* p = recieve_params[0];
+                strcpy_s(user_name, USER_LEN, p);
+            }
+            else {
+                ret_val = FALSE;
+                break;
+            }
             ret_val=get_server_responed(&message_type_to_send);
             IS_FALSE(ret_val,"get_server_responed failed\n");
             send_params[0] = "server is full of clients";//in case sending SERVER_DENIED
@@ -440,7 +444,8 @@ static DWORD ServiceThread(LPVOID lpParam) {
             ret_val=wait_for_another_client(Ind, oppsite_ind, &oponnent_alive);
             IS_FALSE(ret_val, "wait_for_another_client failed\n");
             if (oponnent_alive) {
-                ret_val = clien_versus(user_title, user_name, user_opposite_title, oppsite_ind, Ind, oppsite_user_name, file_mutex);
+                ret_val = clien_versus(user_title, user_name, user_opposite_title, oppsite_ind, Ind, oppsite_user_name, file_mutex,&oponnent_alive);
+                if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
                 IS_FALSE(ret_val, " clien_versus failed\n");
                 send_params[0] = oppsite_user_name;
                 ret_val_connection = SendMsg(*t_socket, SERVER_INVITE, send_params);
@@ -459,9 +464,10 @@ static DWORD ServiceThread(LPVOID lpParam) {
             ret_val = wait_for_another_client(Ind, oppsite_ind, &oponnent_alive);
             IS_FALSE(ret_val, "wait_for_another_client failed\n");
             if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
-            ret_val=client_move(Ind, your_guess, session_result, FALSE, user_title, user_opposite_title, oppsite_ind, user_number, file_mutex, bulls, cows, opponent_guess);
-            IS_FALSE(ret_val, "client_move failed\n");
-            ret_val = get_opponent_number(Ind, user_title, user_opposite_title, oppsite_ind, file_mutex, opponent_number, user_number);
+            //ret_val=client_move(Ind, your_guess, session_result, FALSE, user_title, user_opposite_title, oppsite_ind, user_number, file_mutex, bulls, cows, opponent_guess, );
+            //IS_FALSE(ret_val, "client_move failed\n");
+            ret_val = get_opponent_number(Ind, user_title, user_opposite_title, oppsite_ind, file_mutex, opponent_number, user_number,&oponnent_alive);
+            if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
             IS_FALSE(ret_val, "get_opponent_number failed\n");
             strcpy_s(user_number, GUESS, recieve_params[0]);
             ret_val_connection = SendMsg(*t_socket, SERVER_PLAYER_MOVE_REQUEST, NULL);
@@ -475,13 +481,14 @@ static DWORD ServiceThread(LPVOID lpParam) {
 
             strcpy_s(your_guess, GUESS, recieve_params[0]);
             //calculate moves
-            ret_val = client_move(Ind, your_guess, session_result, FALSE, user_title,user_opposite_title, oppsite_ind, user_number, file_mutex , bulls,cows ,opponent_guess);
+            ret_val = client_move(Ind, your_guess, session_result, FALSE, user_title,user_opposite_title, oppsite_ind, user_number, file_mutex , bulls,cows ,opponent_guess, &oponnent_alive);
             IS_FALSE(ret_val, "client_move failed\n");
             send_params[0] = bulls; send_params[1] = cows; send_params[2] = oppsite_user_name; send_params[3] = opponent_guess;
             ret_val_connection = SendMsg(*t_socket, SERVER_GAME_RESULTS, send_params);
             CHECK_CONNECTION(ret_val_connection);
 
-            ret_val=get_round_result(Ind, user_title, user_opposite_title, oppsite_ind,file_mutex, bulls, &round_result,&message_type_to_send);
+            ret_val=get_round_result(Ind, user_title, user_opposite_title, oppsite_ind,file_mutex, bulls, &round_result,&message_type_to_send, &oponnent_alive);
+            if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
             IS_FALSE(ret_val, "get_round_result failed\n");
 
             if (round_result == USER_WIN)
@@ -516,7 +523,7 @@ static DWORD ServiceThread(LPVOID lpParam) {
     if (!ret_val) {
         return 0;
     }
-    if (!ret_val_connection) {
+    if (ret_val_connection != TRNS_SUCCEEDED) {
         return 0;
     }
     return 1;
@@ -702,7 +709,19 @@ BOOL create_mutexs_and_events() {
         printf("CreateEvent failed (%d)\n", GetLastError());
         return FALSE;
     }
-    
+    opponent_failed = CreateEvent(
+        NULL,               // default security attributes
+        TRUE,               // manual-reset event
+        FALSE,              // initial state is nonsignaled
+        TEXT("Opponent_failed")  // object name
+    );
+
+    if (opponent_failed == NULL)
+    {
+        printf("CreateEvent failed (%d)\n", GetLastError());
+        return FALSE;
+    }
+
 
     connected_clients_mutex = CreateMutex(
         NULL,	/* default security attributes */
@@ -737,7 +756,8 @@ BOOL file_handle(  HANDLE file_mutex) {
     printf("enter mutex \n");
     //critical section- check if queue is not empty and pop the mission 
     if (file == NULL) {
-        ResetEvent(close_file_event);
+        ret_val = ResetEvent(close_file_event);
+        if (!ret_val) return FALSE;
         file = CreateFileA((LPCSTR)file_path,// file name 
             GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
         if (file == INVALID_HANDLE_VALUE)
@@ -752,7 +772,8 @@ BOOL file_handle(  HANDLE file_mutex) {
         //GetFileSize(file, end_of_file_offset);
         //SetFilePointer(file, end_of_file_offset, NULL, FILE_BEGIN); 
         //WriteFile(file, user_name, strlen(user_name), &lpNumberOfBytesWritten, NULL);
-        SetEvent(event_file);
+        ret_val = SetEvent(event_file);
+        if (!ret_val) return FALSE;
        
     }
     //end of critical section 
@@ -789,17 +810,20 @@ int other_thread_ind(int Ind,char* user_name, char* oppsite_user_name) {
     return 0;
 }
 
+
 /*
 functionality: each thread write to a shared file. after they both finish writing, each thread in his turn read the opponent message.
 message_to_file- the message to write in the file
 message_from_file - the message the thread read from file.(opponent message)
 */
-BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL users_name_flag,char* user_title, char* user_opposite_title , int oppsite_ind, HANDLE file_mutex) {
+BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL users_name_flag,char* user_title, char* user_opposite_title , int oppsite_ind, HANDLE file_mutex , int* opponent_alive) {
     DWORD wait_code;
     BOOL bErrorFlag = FALSE;
     DWORD lpNumberOfBytesWritten;
     BOOL ret_val;
-    DWORD dwWaitResultOtherClient;
+    int opponent_alive_from_function = 1;
+    DWORD retval;
+    HANDLE wait_for_multiple[2] = { NULL };
     char string_from_file[50] = {0};
     printf("start game session \n");
     wait_code = WaitForSingleObject(file_mutex, INFINITE);
@@ -810,12 +834,12 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
     }
 
     //critical 
-    
-    
-   
-    SetFilePointer(file, 0, NULL, FILE_END); //set pointer to end of file
-    WriteFile(file, message_to_file, strlen(message_to_file), &lpNumberOfBytesWritten, NULL);
-    SetEvent(event_thread[Ind]);
+    retval = SetFilePointer(file, 0, NULL, FILE_END); //set pointer to end of file
+    if (retval == INVALID_SET_FILE_POINTER) return FALSE;
+    ret_val = WriteFile(file, message_to_file, strlen(message_to_file), &lpNumberOfBytesWritten, NULL);
+    if (!ret_val) return FALSE;
+    ret_val = SetEvent(event_thread[Ind]);
+    if (!ret_val) return FALSE;
     printf("end writing \n");
     ret_val = ReleaseMutex(file_mutex);
     if (FALSE == ret_val)
@@ -823,25 +847,13 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
         printf("-ERROR: %d - release semaphore failed !\n", GetLastError());
         return FALSE;
     }
-    
-    //Wait for the second thread to write
-    dwWaitResultOtherClient = WaitForSingleObject(
-    event_thread[oppsite_ind], // event handle
-    INFINITE);
-    if (WAIT_OBJECT_0 != dwWaitResultOtherClient)
-    {
-        printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
-        return FALSE;
-    }    // indefinite wait
-    printf("can start reading \n");
-    
-    
-    //printf("file size from begin %10d \n", offset_end_a);
-    printf("startreading \n");
-    if (dwWaitResultOtherClient != WAIT_OBJECT_0) {
-        printf("Wait error (%d)\n", GetLastError());
-        return FALSE;
-    }
+    ////Wait for the second thread to write
+    ret_val = wait_for_client_answer(&opponent_alive_from_function, 2, oppsite_ind);
+    *opponent_alive = opponent_alive_from_function;
+    if (!ret_val) return FALSE;
+   
+  
+   
     //in your turn read the other user play 
     
     wait_code = WaitForSingleObject(file_mutex, INFINITE);
@@ -850,7 +862,8 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
         printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
         return FALSE;
     }
-    SetFilePointer(file, 0, NULL, FILE_BEGIN);
+    retval = SetFilePointer(file, 0, NULL, FILE_BEGIN);
+    if (retval == INVALID_SET_FILE_POINTER) return FALSE;
     ret_val = read_from_pointer_in_file(0, string_from_file);
     if (!ret_val) return FALSE;
     printf("string_from_file %s \n", string_from_file);
@@ -871,24 +884,15 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
         printf("-ERROR: %d - release mutex failed !\n", GetLastError());
         return FALSE;
     }
-    dwWaitResultOtherClient = WaitForSingleObject(
-        event_thread_end_reading[oppsite_ind], // event handle
-        INFINITE);
-    if (WAIT_OBJECT_0 != dwWaitResultOtherClient)
-    {
-        printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
-        return FALSE;
-    }    // indefinite wait
+    ret_val = wait_for_client_answer(&opponent_alive_from_function, 3, oppsite_ind);
+    *opponent_alive = opponent_alive_from_function;
+    if (!ret_val) return FALSE;
+
     ret_val = close_file_handle(file_mutex);
     if (!ret_val) return FALSE;
-    dwWaitResultOtherClient = WaitForSingleObject(
-        close_file_event, // event handle
-        INFINITE);
-    if (WAIT_OBJECT_0 != dwWaitResultOtherClient)
-    {
-        printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
-        return FALSE;
-    }    // indefinite wait
+    ret_val = wait_for_client_answer(&opponent_alive_from_function, 4, oppsite_ind);
+    *opponent_alive = opponent_alive_from_function;
+    if (!ret_val) return FALSE;
     return TRUE;
 }
 
@@ -907,17 +911,22 @@ BOOL wait_for_another_client(int Ind, int oppsite_ind,int *oponnent_alive) {
     if (WAIT_OBJECT_0 != dwWaitResultOtherClient)
     {
         printf("there is no other client to play :( %d\n", GetLastError());
-        ResetEvent(event_thread[Ind]);
+        ret_val = ResetEvent(event_thread[Ind]);
+        if (!ret_val) return FALSE;
         *oponnent_alive = 0;
         return TRUE;
     }    // indefinite wait
-    ResetEvent(event_thread[oppsite_ind]);
+    ret_val = ResetEvent(event_thread[oppsite_ind]);
+    if (!ret_val) return FALSE;
     *oponnent_alive = 1;
     return TRUE;
 
 }
 BOOL reset_game(SOCKET socket) {
     DWORD ret_val = 0;
+    BOOL retval;
+    retval = ResetEvent(opponent_failed);
+    if (!retval) return FALSE;
     ret_val = SendMsg(socket, SERVER_OPPONENT_QUIT, NULL);
     if (ret_val != TRNS_SUCCEEDED) {
         return FALSE;
@@ -967,64 +976,62 @@ BOOL read_from_pointer_in_file(int offset, char* buffer) {
     return TRUE;
 }
 
-BOOL clien_versus(char* user_title,char* user_name, char* user_opposite_title,int oppsite_ind, int Ind, char* oppsite_user_name, HANDLE file_mutex) {
+BOOL clien_versus(char* user_title,char* user_name, char* user_opposite_title,int oppsite_ind, int Ind, char* oppsite_user_name, HANDLE file_mutex , int* opponent_alive) {
    
     char message_to_file[USER_NAME_MSG] = {0};
     int offest_end_file = 0;
     BOOL retval;
-    DWORD dwWaitResultFile;
+    int opponent_alive_from_function = 1;
+    
 
     retval = file_handle(file_mutex);
+
     if (!retval) return FALSE;
     printf("waiting for other playar\n");
-    dwWaitResultFile = WaitForSingleObject(
-        event_file, // event handle
-        INFINITE);    // indefinite wait
-
-    if (dwWaitResultFile != WAIT_OBJECT_0) {
-        printf("Wait error (%d)\n", GetLastError());
-        return FALSE;
-    }
+    retval = wait_for_client_answer(&opponent_alive_from_function, 1, oppsite_ind);
+    *opponent_alive = opponent_alive_from_function;
+    if (!retval) return FALSE;
     printf("file event set\n");
     strcpy_s(message_to_file, USER_NAME_MSG, user_title);
     strcat_s(message_to_file, USER_NAME_MSG, user_name);
     strcat_s(message_to_file, USER_NAME_MSG, "\n\r");
-    retval = game_session(Ind, message_to_file, oppsite_user_name, TRUE, user_title, user_opposite_title, oppsite_ind, file_mutex);
+    retval = game_session(Ind, message_to_file, oppsite_user_name, TRUE, user_title, user_opposite_title, oppsite_ind, file_mutex,&opponent_alive_from_function);
+    *opponent_alive = opponent_alive_from_function;
     if (!retval) return FALSE;
-    ResetEvent(event_thread[Ind]);
-    ResetEvent(event_thread_end_reading[Ind]);
+    retval = ResetEvent(event_thread[Ind]);
+    if (!retval) return FALSE;
+    retval = ResetEvent(event_thread_end_reading[Ind]);
+    if (!retval) return FALSE;
     printf("oppsinte name %s%s \n", oppsite_user_name, user_title);
     return TRUE;
 }
 
 BOOL client_move(int Ind, char* your_guess, char* message_from_file, BOOL users_name_flag,
     char* user_title, char* user_opposite_title, int oppsite_ind,char* your_number
-    , HANDLE file_mutex , char* bulls, char* cows , char* opponent_guess) {
+    , HANDLE file_mutex , char* bulls, char* cows , char* opponent_guess , int* opponent_alive) {
     int cows_calculate;
     int bulls_calculate;
     BOOL retval;
-    DWORD dwWaitResultFile;
+    int opponent_alive_from_function = 1;
     
     retval = file_handle(file_mutex);
     if (!retval) return FALSE;
-    printf("waiting for other player\n");
-    dwWaitResultFile = WaitForSingleObject(
-        event_file, // event handle
-        INFINITE);    // indefinite wait
-
-    if (dwWaitResultFile != WAIT_OBJECT_0) {
-        printf("Wait error (%d)\n", GetLastError());
-        return FALSE;
-    }
+    retval = wait_for_client_answer(&opponent_alive_from_function, 1, oppsite_ind);
+    *opponent_alive = opponent_alive_from_function;
+    if (!retval) return FALSE;
+    
     char guess_message_to_file[USER_NAME_MSG] = { 0 };
     char cows_and_bulls[USER_NAME_MSG] = { 0 };
     char cows_and_bulls_message_to_file[USER_NAME_MSG] = { 0 };
     sprintf_s(guess_message_to_file, USER_NAME_MSG, "%s%s\n\r", user_title, your_guess);
-    retval =game_session(Ind, guess_message_to_file, message_from_file, FALSE, user_title, user_opposite_title, oppsite_ind, file_mutex);
+    retval =game_session(Ind, guess_message_to_file, message_from_file, FALSE, user_title, user_opposite_title, oppsite_ind, file_mutex,&opponent_alive_from_function);
+    *opponent_alive = opponent_alive_from_function;
     if (!retval) return FALSE;
     sprintf_s(opponent_guess, GUESS, "%s", message_from_file);
-    ResetEvent(event_thread[Ind]);
-    ResetEvent(event_thread_end_reading[Ind]);
+    retval = ResetEvent(event_thread[Ind]);
+    if (!retval) return FALSE;
+    retval = ResetEvent(event_thread_end_reading[Ind]);
+    if (!retval) return FALSE;
     
     get_bulls_and_cows(your_number, message_from_file, &cows_calculate, &bulls_calculate);
     sprintf_s(cows_and_bulls, USER_NAME_MSG, "%d,%d", bulls_calculate, cows_calculate);
@@ -1033,46 +1040,38 @@ BOOL client_move(int Ind, char* your_guess, char* message_from_file, BOOL users_
     retval = file_handle(file_mutex);
     if (!retval) return FALSE;
     printf("waiting for other playar\n");
-    dwWaitResultFile = WaitForSingleObject(
-        event_file, // event handle
-        INFINITE);    // indefinite wait
-
-    if (dwWaitResultFile != WAIT_OBJECT_0) {
-        printf("Wait error (%d)\n", GetLastError());
-        return FALSE;
-    }
-    retval =game_session(Ind, cows_and_bulls_message_to_file, message_from_file, FALSE, user_title, user_opposite_title, oppsite_ind, file_mutex);
+    retval = wait_for_client_answer(&opponent_alive_from_function, 1, oppsite_ind);
+    *opponent_alive = opponent_alive_from_function;
+    if (!retval) return FALSE;
+    retval =game_session(Ind, cows_and_bulls_message_to_file, message_from_file, FALSE, user_title, user_opposite_title, oppsite_ind, file_mutex,&opponent_alive_from_function);
+    *opponent_alive = opponent_alive_from_function;
     if (!retval) return FALSE;
     sprintf_s(bulls, 5, "%c", message_from_file[0]);
     sprintf_s(cows, 5, "%c", message_from_file[2]);
     
-    ResetEvent(event_thread[Ind]);
-    ResetEvent(event_thread_end_reading[Ind]);
+    retval = ResetEvent(event_thread[Ind]);
+    if (!retval) return FALSE;
+    retval = ResetEvent(event_thread_end_reading[Ind]);
+    if (!retval) return FALSE;
     
     return TRUE;
 }
 
 //result values: no winner= 0, user won=1, opponent won=2, tie =3
 BOOL get_round_result(int Ind, char* user_title, char* user_opposite_title, int oppsite_ind,
-     HANDLE file_mutex, char* bulls, int* round_result, int * message_type_to_send) {
+     HANDLE file_mutex, char* bulls, int* round_result, int * message_type_to_send , int * opponent_alive) {
 
     DWORD retval;
-    DWORD dwWaitResultFile;
+    int opponent_alive_from_function = 1;
     char message_to_file[USER_NAME_MSG] = { 0 };
     char message_from_file[USER_NAME_MSG] = { 0 };
     char opponent_bulls[USER_NAME_MSG] = { 0 };
 
     retval = file_handle(file_mutex);
     if (!retval) return FALSE;
-    printf("waiting for other playar\n");
-    dwWaitResultFile = WaitForSingleObject(
-        event_file, // event handle
-        INFINITE);    // indefinite wait
-
-    if (dwWaitResultFile != WAIT_OBJECT_0) {
-        printf("Wait error (%d)\n", GetLastError());
-        return FALSE;
-    }
+    retval = wait_for_client_answer(&opponent_alive_from_function, 1, oppsite_ind);
+    *opponent_alive = opponent_alive_from_function;
+    if (!retval) return FALSE;
 
     *round_result = NO_WINNER;
     *message_type_to_send = SERVER_PLAYER_MOVE_REQUEST;
@@ -1084,11 +1083,14 @@ BOOL get_round_result(int Ind, char* user_title, char* user_opposite_title, int 
     sprintf_s(message_to_file, USER_NAME_MSG, "%s%s\n\r", user_title, bulls);
 
 
-    retval = game_session(Ind, message_to_file, message_from_file, FALSE, user_title, user_opposite_title, oppsite_ind, file_mutex);
+    retval = game_session(Ind, message_to_file, message_from_file, FALSE, user_title, user_opposite_title, oppsite_ind, file_mutex,&opponent_alive_from_function);
+    *opponent_alive = opponent_alive_from_function;
     if (!retval) return FALSE;
     sprintf_s(opponent_bulls, USER_NAME_MSG, "%c", message_from_file[0]);//get opponent result
-    ResetEvent(event_thread[Ind]);
-    ResetEvent(event_thread_end_reading[Ind]);
+    retval = ResetEvent(event_thread[Ind]);
+    if (!retval) return FALSE;
+    retval = ResetEvent(event_thread_end_reading[Ind]);
+    if (!retval) return FALSE;
 
     //check user result and update the result 
     if (strcmp("4", opponent_bulls) == 0) {
@@ -1200,12 +1202,14 @@ BOOL close_file_handle(HANDLE file_mutex) {
         sprintf_s(file_path, 74, "%s", "GameSession.txt");
         
         CloseHandle(file);
-        ResetEvent(event_file);
+        ret_val = ResetEvent(event_file);
+        if (!ret_val) return FALSE;
         file = NULL;
         printf("file is null");
     }
     else {
-        SetEvent(close_file_event);
+        ret_val =SetEvent(close_file_event);
+        if (!ret_val) return FALSE;
         
     }
     //end of critical section 
@@ -1223,30 +1227,65 @@ BOOL close_file_handle(HANDLE file_mutex) {
 }
 
 BOOL get_opponent_number(int Ind, char* user_title, char* user_opposite_title, int oppsite_ind,
-    HANDLE file_mutex, char* opponent_number, char* your_number) {
+    HANDLE file_mutex, char* opponent_number, char* your_number , int* opponent_alive) {
     
     DWORD retval;
-    DWORD dwWaitResultFile;
-
+    int opponent_alive_from_function = 1;
     retval = file_handle(file_mutex);
     if (!retval) return FALSE;
     printf("waiting for other player\n");
-    dwWaitResultFile = WaitForSingleObject(
-        event_file, // event handle
-        INFINITE);    // indefinite wait
-
-    if (dwWaitResultFile != WAIT_OBJECT_0) {
-        printf("Wait error (%d)\n", GetLastError());
-        return FALSE;
-    }
+    retval = wait_for_client_answer(&opponent_alive_from_function, 1, oppsite_ind);
+    *opponent_alive = opponent_alive_from_function;
+    if (!retval) return FALSE;
     char message_from_file[USER_NAME_MSG] = { 0 };
     char real_number_message_to_file[USER_NAME_MSG] = { 0 };
     
     sprintf_s(real_number_message_to_file, USER_NAME_MSG, "%s%s\n\r", user_title, your_number);
-    retval = game_session(Ind, real_number_message_to_file, message_from_file, FALSE, user_title, user_opposite_title, oppsite_ind, file_mutex);
+    retval = game_session(Ind, real_number_message_to_file, message_from_file, FALSE, user_title, user_opposite_title, oppsite_ind, file_mutex , &opponent_alive_from_function);
+    *opponent_alive = opponent_alive_from_function;
     if (!retval) return FALSE;
     sprintf_s(opponent_number, GUESS, "%s", message_from_file);
-    ResetEvent(event_thread[Ind]);
-    ResetEvent(event_thread_end_reading[Ind]);
+    retval = ResetEvent(event_thread[Ind]);
+    if (!retval) return FALSE;
+    retval = ResetEvent(event_thread_end_reading[Ind]);
+    if (!retval) return FALSE;
+    return TRUE;
+}
+
+
+BOOL wait_for_client_answer(int* opponent_alive, int choose_event , int opponnent_ind) {
+    HANDLE wait_for_multiple_handles[2] = { NULL };
+    wait_for_multiple_handles[1] = opponent_failed;
+    DWORD dwWaitResultFile;
+    switch (choose_event)
+    {
+    case 2:
+        wait_for_multiple_handles[0] =event_thread[opponnent_ind];
+        break;
+    case 3:
+        wait_for_multiple_handles[0] = event_thread_end_reading[opponnent_ind];
+        break;
+    case 1:
+        wait_for_multiple_handles[0] =event_file;
+        break;
+    case 4:
+        wait_for_multiple_handles[0] = close_file_event;
+        break;
+    default:
+        break;
+    }
+    dwWaitResultFile = WaitForMultipleObjects(2, wait_for_multiple_handles, FALSE, INFINITE);
+    if ((dwWaitResultFile - WAIT_OBJECT_0) != 0 && (dwWaitResultFile - WAIT_OBJECT_0) != 1) {
+        printf("-ERROR: %d - WaitForMultipleObject failed !\n", GetLastError());
+        return FALSE;
+    }
+    else if (dwWaitResultFile - WAIT_OBJECT_0 == 1) {
+        *opponent_alive = 0;
+        return FALSE;
+    }
+    else {
+        *opponent_alive = 1;
+        
+    }
     return TRUE;
 }
