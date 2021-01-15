@@ -26,7 +26,7 @@
 #define USER_TITLE 7
 #define GUESS 5//need to include '\0'
 
-#define CHECK_CONNECTION(RESULT) if (RESULT != TRNS_SUCCEEDED) {connected_to_client=0; break;}
+#define CHECK_CONNECTION(RESULT) if (RESULT != TRNS_SUCCEEDED) {SetEvent(opponent_failed); connected_to_client=0; break;}
 #define IS_FALSE(RESULT,MSG) if (RESULT != TRUE)\
 {\
     printf("function:[%s line:%d] %s\n", __func__,__LINE__,MSG);\
@@ -854,16 +854,16 @@ BOOL file_handle(  HANDLE file_mutex) {
     }
 
 
-int other_thread_ind(int Ind,char* user_name, char* oppsite_user_name) {
+int other_thread_ind(int Ind,char* user_title, char* oppsite_title) {
 
     if (Ind == 0) {
-        strcpy_s(user_name, USER_TITLE, "user0:");
-        strcpy_s(oppsite_user_name, USER_TITLE, "user1:");
+        strcpy_s(user_title, USER_TITLE, "user0:");
+        strcpy_s(oppsite_title, USER_TITLE, "user1:");
         return 1;
     }
     else if (Ind == 1) {
-        strcpy_s(user_name, 7, "user1:");
-        strcpy_s(oppsite_user_name, USER_TITLE, "user0:");
+        strcpy_s(user_title, 7, "user1:");
+        strcpy_s(oppsite_title, USER_TITLE, "user0:");
         
         return 0;
     }
@@ -871,11 +871,7 @@ int other_thread_ind(int Ind,char* user_name, char* oppsite_user_name) {
 }
 
 
-/*
-functionality: each thread write to a shared file. after they both finish writing, each thread in his turn read the opponent message.
-message_to_file- the message to write in the file
-message_from_file - the message the thread read from file.(opponent message)
-*/
+
 BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL users_name_flag,char* user_title, char* user_opposite_title , int oppsite_ind, HANDLE file_mutex , int* opponent_alive) {
     DWORD wait_code;
     BOOL bErrorFlag = FALSE;
