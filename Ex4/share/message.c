@@ -4,11 +4,20 @@
 // Includes --------------------------------------------------------------------
 #include "message.h"
 
+// Static Function Declration -------------------------------------------------------
+
+/*get_params funtion extract the parametrs from string message and set it in params array.
+* msg - string that cotains the message
+* inputs - number of parametrs in the given message
+* params -pointer to array of strings that need to be pointed to NULL. for example : char *params[]={NULL}. 
+           in the end of the function thr array will we set to the recieved paramters from the message
+*
+* Returns:
+*------ -
+*return 2 if the function succeed othereise return 1*/
+static int get_params(char msg[], int inputs, char** params);
+
 // Function Implementation -------------------------------------------------------
-
-// Server messages --------------------------------------------------------------------
-
-// Client messages --------------------------------------------------------------------
 
 DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 	TransferResult_t SendRes;
@@ -99,12 +108,12 @@ DWORD RecieveMsg(SOCKET socket, int *message_type, char ** params, int timeout) 
 	int* indexes = NULL;
 	int *lens = NULL;
 	int i = 0;
-
+	int ret_val;
 	fd_set set;
 	struct timeval time_out;
 	FD_ZERO(&set); /* clear the set */
 	FD_SET(socket, &set); /* add our file descriptor to the set */
-	time_out.tv_sec = timeout;
+	time_out.tv_sec = timeout;//in sec
 	time_out.tv_usec = 0;
 	int rv = select(socket+1, &set, NULL, NULL, &time_out);
 	if (rv == SOCKET_ERROR||rv==0)
@@ -177,15 +186,19 @@ DWORD RecieveMsg(SOCKET socket, int *message_type, char ** params, int timeout) 
 	}
 
 	else {
+		free(AcceptedStr);
 		IS_FAIL(TRNS_FAILED, "ERROR: message type is invalid\n")
 	}
 
 	//if paramters sent in the msg, allocate it in params
 	if (inputs > 0) {
-		get_params(AcceptedStr,inputs,params);
+		ret_val = get_params(AcceptedStr, inputs, params);
+		free(AcceptedStr);
+		IS_FAIL(ret_val, "ERROR: get_params failed\n");
 	}
-	
-	free(AcceptedStr);
+	else {
+		free(AcceptedStr);
+	}
 	return TRNS_SUCCEEDED;
 
 }
@@ -198,21 +211,9 @@ void free_params(char** params) {
 		}
 	}
 }
-/*
-* dest - pointer to the destination of the string
-msg - pointer to the recieved message
-index - is the index the parameter is placed into msg
-len - is the len of the parameter (not include \0)
-*/
-void copy_param_from_message(char *dest,char *msg, int index, int len) {
-	int i = 0;
-	for (i = 0; i < len; i++) {
-		dest[i] = msg[index + i];
-	}
-	dest[i] = '\0';//end for string 
-}
 
-void get_params(char msg[], int inputs, char** params) {
+
+static int get_params(char msg[], int inputs, char** params) {
 	char* next_token = NULL;
 	char* temp;
 	char* temp_token = NULL;
@@ -228,11 +229,12 @@ void get_params(char msg[], int inputs, char** params) {
 		params[i] = (char*)malloc(sizeof(char) * (strlen(temp) + 1));
 		if (params[i] == NULL) {
 		printf("ERROR: allocation failed\n");
-		return;
+		return 1;
 		}
 		strcpy_s(params[i], (strlen(temp) + 1),temp);//copy param to params array
 		msg_inputs = NULL;
 		i++;
 	}
+	return 2;
 
 }

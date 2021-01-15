@@ -27,15 +27,18 @@ int client(char  IP[], int port, char  username[]);
 
 int main(int argc , char* argv[]) {
 
-	if (argc != 2) {
-		printf("ERROR:there is %d arguments, need to be 2!\n", argc);
+	if (argc != 4) {
+		printf("ERROR:please insert server IP, server port and username to the command line\n");
 		return 0;
 	}
-
+	//printf("IP:%s, port:%s,username:%s\n",argv[1],argv[2], argv[3]);
+	char IP[20] = { 0 };
+	strcpy_s(IP, 20, argv[1]);
+	int port = atoi(argv[2]);
 	char username[USER_LEN] = {0};
-	strcpy_s(username, USER_LEN, argv[1]);
-	char IP[] = SERVER_ADDRESS_STR;
-	int port = SERVER_PORT;
+	strcpy_s(username, USER_LEN, argv[3]);
+	
+	
 	int status = 0;
 
 	while (1) {
@@ -213,7 +216,8 @@ int client(char  IP[], int port, char  username[])
 	free_params(recieve_params);
 	closesocket(client_socket);
 
-	WSACleanup();
+	if (WSACleanup() == SOCKET_ERROR)
+		printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
 
 	return client_exit_status;
 }

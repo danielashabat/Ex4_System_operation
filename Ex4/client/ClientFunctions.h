@@ -28,9 +28,13 @@ typedef enum { FAILED= TRNS_FAILED,DISCONNECTED = TRNS_DISCONNECTED, SUCCEEDED =
 //* TRNS_SUCCEEDED - if receivingand memory allocation succeeded
 //* TRNS_DISCONNECTED - if the socket was disconnected
 //* TRNS_FAILED - otherwise
+// DENIED if the server denied the client 
 
+
+/*functions for printing for the user the different menus */
 void print_main_menu();
 int print_reconnect_menu(char  IP[], int port);
 int print_server_denied_menu(char  IP[], int port);
 void print_result(char* bulls, char* cows, char* opponent_username, char* opponent_move);
+/*end print functions*/
 #endif // CLIENT_FUNCTIONS_H
