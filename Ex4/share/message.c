@@ -95,7 +95,7 @@ DWORD SendMsg(SOCKET socket, int message_type, char* params[]) {
 	//send message
 	SendRes = SendString(msg, socket);
 	IS_FAIL(SendRes, "Socket error while trying to write data to socket\n");
-	printf("-info- succeed sent messeage: %s", msg);
+	//printf("-info- succeed sent messeage: %s", msg);
 	return TRNS_SUCCEEDED;
 }
 
@@ -125,7 +125,7 @@ DWORD RecieveMsg(SOCKET socket, int *message_type, char ** params, int timeout) 
 	
 	//recieve the message
 	IS_FAIL(RecvRes, "RecieveString from server failed\n");
-	printf("RecieveString from server succeed the message is: %s", AcceptedStr);
+	//printf("RecieveString from server succeed the message is: %s", AcceptedStr);
 
 	if (check_if_message_type_instr_message(AcceptedStr, "CLIENT_REQUEST")) {
 		*message_type = CLIENT_REQUEST;
