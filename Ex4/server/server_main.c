@@ -44,15 +44,15 @@ HANDLE connected_clients_mutex = NULL;
 HANDLE ThreadHandles[NUM_OF_WORKER_THREADS];
 SOCKET ThreadInputs[NUM_OF_WORKER_THREADS];
 int connected_clients;
-//SOCKET AcceptSocket;
 
+
+/*this function checks if any of the threads terminated with a failure
+if fail found the function returns TRUE, otherwise returns FALSE*/
+BOOL service_thread_failed();
+
+/*check if there is non signaled threads running in program */
+int open_threads();
 /* -------------main------------------*/
-
-
-
-
-
-
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         printf("ERROR:there is %d arguments, need to be 2!\n", argc);
@@ -292,6 +292,7 @@ server_main_cleanup_final:
     return 0;
 }
 
+/*check if there is non signaled threads running in program */
 int open_threads()
 {
     DWORD Res = 0;
@@ -532,6 +533,7 @@ static DWORD ServiceThread(LPVOID lpParam) {
             strcpy_s(user_number, GUESS, recieve_params[0]);
             ret_val_connection = SendMsg(*t_socket, SERVER_PLAYER_MOVE_REQUEST, NULL);
             CHECK_CONNECTION(ret_val_connection);
+            printf("the opponent number is: %s\n", opponent_number);
             break;
 
         case CLIENT_PLAYER_MOVE:
