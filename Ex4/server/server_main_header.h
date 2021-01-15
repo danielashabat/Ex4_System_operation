@@ -31,7 +31,8 @@ BOOL wait_for_another_client(int Ind, int oppsite_ind, int* oponnent_alive);
 void close_event_and_mutex(HANDLE file_mutex);
 void close_thread_and_sockets();
 BOOL get_param_from_file(char* string_from_file, char* param, int start_point, char* user_opposite_title);
-static int FindFirstUnusedThreadSlot();
+static BOOL FindFirstUnusedThreadSlot(int* ptr_Ind);
+int open_threads();
 BOOL read_from_pointer_in_file(int offset, char* buffer);
 BOOL get_opponent_number(int Ind, char* user_title, char* user_opposite_title, int oppsite_ind,
 	HANDLE file_mutex, char* opponent_number, char* your_number);

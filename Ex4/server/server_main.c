@@ -12,7 +12,7 @@
 #include <winsock2.h>
 #include <WS2tcpip.h>
 #include <Windows.h>
-
+#include <conio.h>
 
 #include "SocketShared.h"
 #include "SocketSendRecvTools.h"
@@ -63,7 +63,7 @@ BOOL wait_for_another_client(int Ind, int oppsite_ind, int* oponnent_alive);
 void close_event_and_mutex(HANDLE file_mutex);
 void close_thread_and_sockets();
 BOOL get_param_from_file(char* string_from_file, char* param, int start_point, char* user_opposite_title);
-
+BOOL service_thread_failed();
 
 
 
@@ -83,7 +83,6 @@ int main() {
     SOCKET AcceptSocket;
     int program_running = 1;
     int i = 0;
-    int exit_code;
     if (StartupRes != NO_ERROR)
     {
         printf("error %ld at WSAStartup( ), ending program.\n", WSAGetLastError());
@@ -184,7 +183,11 @@ int main() {
 
 
 
-            Ind = FindFirstUnusedThreadSlot();
+            if (!FindFirstUnusedThreadSlot(&Ind)) {
+                printf("ERROR: FindFirstUnusedThreadSlot failed!\n");
+                goto server_main_cleanup_final;
+            }
+
 
             if (Ind == NUM_OF_WORKER_THREADS) //no slot is available
             {
@@ -205,6 +208,11 @@ int main() {
                     goto server_main_cleanup_final;
                 }
             }
+        }//end creating new service thread
+
+        if (service_thread_failed()) {//check for failures
+            printf("ERROR:server detected error in one of the threads!\n");
+            goto server_main_cleanup_final;
         }
 
         /*terminate after 'exit'*/
@@ -223,7 +231,7 @@ int main() {
     }
     //terminate proccess after exit 
 
-
+    goto server_main_cleanup_final;
 
 
 /*---------------goto cleanup-------------------*/
@@ -251,17 +259,14 @@ server_main_cleanup_3:
 
 server_main_cleanup_final:
     printf("Server ends program! Bye!\n");
-    //printf("closing all open threads\n");
+    if (open_threads())
+        printf("Oh No! there is open clients! please close all clients\n");
+    
     for (Ind = 0; Ind < NUM_OF_WORKER_THREADS; Ind++)
     {
         if (ThreadHandles[Ind] != NULL)
         {
-            // poll to check if thread finished running:
-            DWORD Res = WaitForSingleObject(ThreadHandles[Ind], 0);
-            if (Res != WAIT_OBJECT_0) {
-                printf("Oh No! there is open clients! please close all clients\n");
-            }
-            Res = WaitForSingleObject(ThreadHandles[Ind], 15000);
+            DWORD Res = WaitForSingleObject(ThreadHandles[Ind], 15000);
 
             if (Res == WAIT_OBJECT_0)
             {
@@ -272,7 +277,7 @@ server_main_cleanup_final:
             }
             else
             {
-                printf("Waiting for thread failed. Terminate Threads\n");
+                printf("Waiting for thread failed. Terminate Thread\n");
                 ret_val = TerminateThread(ThreadHandles[Ind], 0x55);
                 if (FALSE == ret_val)
                 {
@@ -291,6 +296,48 @@ server_main_cleanup_final:
         printf("Failed to close Winsocket, error %ld. Ending program.\n", WSAGetLastError());
     RemoveDirectoryA("GameSession.txt");
     return 0;
+}
+
+int open_threads()
+{
+    DWORD Res = 0;
+    for (int Ind = 0; Ind < NUM_OF_WORKER_THREADS; Ind++) {
+        if (ThreadHandles[Ind] != NULL) {
+            Res = WaitForSingleObject(ThreadHandles[Ind], 0);
+            if (Res != WAIT_OBJECT_0)
+                return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+
+/*this function checks if any of the threads terminated with a failure
+if fail found the function returns TRUE, otherwise returns FALSE*/
+BOOL service_thread_failed() {
+    DWORD Res = 0;
+    for (int Ind = 0; Ind < NUM_OF_WORKER_THREADS; Ind++) {
+        if (ThreadHandles[Ind] != NULL) {
+            Res = WaitForSingleObject(ThreadHandles[Ind], 0);
+            if (Res == WAIT_OBJECT_0) {
+                DWORD exit_code = 0;
+                BOOL ret_exit_code = TRUE;
+                ret_exit_code = GetExitCodeThread(ThreadHandles[Ind], &exit_code);
+                if (ret_exit_code) {
+                    if (exit_code == 0) {//thread function failed 
+                        return TRUE;
+                    }
+                }
+                else {
+                    printf("GetExitCodeThread failed\n");
+                    return TRUE;//end program
+                }
+
+            }
+        }
+
+    }
+    return FALSE;
 }
 
 void close_event_and_mutex(HANDLE file_mutex) {
@@ -333,11 +380,16 @@ void close_thread_and_sockets() {
     
 }
 
-/* The WinSock DLL is acceptable. Proceed. */
 
-static int FindFirstUnusedThreadSlot(){
+/*this function find a free slot in ThreadHandles
+inputs: ptr_Ind- pointer to int
+return values:
+FALSE - if an error occured during the function, returns FALSE ->need to terminate server
+otherwise it returns TRUE 
+*/
+static BOOL FindFirstUnusedThreadSlot(int *ptr_Ind){
 
-    int Ind;
+    int Ind = 0;
 
     for (Ind = 0; Ind < NUM_OF_WORKER_THREADS; Ind++)
     {
@@ -350,14 +402,21 @@ static int FindFirstUnusedThreadSlot(){
 
             if (Res == WAIT_OBJECT_0) // this thread finished running
             {
+                if (service_thread_failed()) { //checks for a failure
+                    return FALSE;
+                }
                 CloseHandle(ThreadHandles[Ind]);
                 ThreadHandles[Ind] = NULL;
                 break;
             }
+            else if ((Res == WAIT_ABANDONED) || (Res == WAIT_FAILED)) {
+                return FALSE;//the function failed, need to end server
+            }
         }
     }
 
-    return Ind;
+    *ptr_Ind = Ind;
+    return TRUE;//function succeed
 }
 
 static DWORD ServiceThread(LPVOID lpParam) {
@@ -415,7 +474,8 @@ static DWORD ServiceThread(LPVOID lpParam) {
             printf("recieve string failed\n");
             ret_val = disconnect_client();
             IS_FALSE(ret_val, "disconnect_client failed\n");
-            return FALSE;
+            free_params(recieve_params);
+            return 1;
         }
         switch (message_type)
         {
