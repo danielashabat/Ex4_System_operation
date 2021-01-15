@@ -524,10 +524,16 @@ static DWORD ServiceThread(LPVOID lpParam) {
             if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
             //ret_val=client_move(Ind, your_guess, session_result, FALSE, user_title, user_opposite_title, oppsite_ind, user_number, file_mutex, bulls, cows, opponent_guess, );
             //IS_FALSE(ret_val, "client_move failed\n");
+            if (recieve_params[0] != NULL) {
+                char* p = recieve_params[0];
+                strcpy_s(user_number, GUESS, recieve_params[0]);
+            }
+            
             ret_val = get_opponent_number(Ind, user_title, user_opposite_title, oppsite_ind, file_mutex, opponent_number, user_number,&oponnent_alive);
+            printf("%s", opponent_number);
             if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
             IS_FALSE(ret_val, "get_opponent_number failed\n");
-            strcpy_s(user_number, GUESS, recieve_params[0]);
+            
             ret_val_connection = SendMsg(*t_socket, SERVER_PLAYER_MOVE_REQUEST, NULL);
             CHECK_CONNECTION(ret_val_connection);
             break;
@@ -536,8 +542,11 @@ static DWORD ServiceThread(LPVOID lpParam) {
             ret_val = wait_for_another_client(Ind, oppsite_ind, &oponnent_alive);
             IS_FALSE(ret_val, "wait_for_another_client failed\n");
             if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
+            if (recieve_params[0] != NULL) {
+                char* p = recieve_params[0];
+                strcpy_s(your_guess, GUESS, recieve_params[0]);
 
-            strcpy_s(your_guess, GUESS, recieve_params[0]);
+            }
             //calculate moves
             ret_val = client_move(Ind, your_guess, session_result, FALSE, user_title,user_opposite_title, oppsite_ind, user_number, file_mutex , bulls,cows ,opponent_guess, &oponnent_alive);
             IS_FALSE(ret_val, "client_move failed\n");
@@ -1278,6 +1287,7 @@ BOOL get_opponent_number(int Ind, char* user_title, char* user_opposite_title, i
     int opponent_alive_from_function = 1;
     retval = file_handle(file_mutex);
     if (!retval) return FALSE;
+
     printf("waiting for other player\n");
     retval = wait_for_client_answer(&opponent_alive_from_function, 1, oppsite_ind);
     *opponent_alive = opponent_alive_from_function;
