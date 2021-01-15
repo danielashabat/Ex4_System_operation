@@ -503,7 +503,7 @@ static DWORD ServiceThread(LPVOID lpParam) {
             IS_FALSE(ret_val, "wait_for_another_client failed\n");
             if (oponnent_alive) {
                 ret_val = clien_versus(user_title, user_name, user_opposite_title, oppsite_ind, Ind, oppsite_user_name, file_mutex,&oponnent_alive);
-                if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
+                if (!oponnent_alive) { ret_val=reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
                 IS_FALSE(ret_val, " clien_versus failed\n");
                 send_params[0] = oppsite_user_name;
                 ret_val_connection = SendMsg(*t_socket, SERVER_INVITE, send_params);
@@ -519,15 +519,12 @@ static DWORD ServiceThread(LPVOID lpParam) {
             break;
 
         case CLIENT_SETUP:
-            if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
             if (recieve_params[0] != NULL) {
                 char* p = recieve_params[0];
                 strcpy_s(user_number, GUESS, p);
             }
-            
             ret_val = get_opponent_number(Ind, user_title, user_opposite_title, oppsite_ind, file_mutex, opponent_number, user_number,&oponnent_alive);
-            printf("%s", opponent_number);
-            if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
+            if (!oponnent_alive) { ret_val=reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
             IS_FALSE(ret_val, "get_opponent_number failed\n");
             
             ret_val_connection = SendMsg(*t_socket, SERVER_PLAYER_MOVE_REQUEST, NULL);
@@ -536,7 +533,6 @@ static DWORD ServiceThread(LPVOID lpParam) {
             break;
 
         case CLIENT_PLAYER_MOVE:
-            if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
             if (recieve_params[0] != NULL) {
                 char* p = recieve_params[0];
                 strcpy_s(your_guess, GUESS, p);
@@ -544,14 +540,14 @@ static DWORD ServiceThread(LPVOID lpParam) {
             }
             //calculate moves
             ret_val = client_move(Ind, your_guess, session_result, FALSE, user_title,user_opposite_title, oppsite_ind, user_number, file_mutex , bulls,cows ,opponent_guess, &oponnent_alive);
+            if (!oponnent_alive) { ret_val=reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
             IS_FALSE(ret_val, "client_move failed\n");
-            if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
             send_params[0] = bulls; send_params[1] = cows; send_params[2] = oppsite_user_name; send_params[3] = opponent_guess;
             ret_val_connection = SendMsg(*t_socket, SERVER_GAME_RESULTS, send_params);
             CHECK_CONNECTION(ret_val_connection);
 
             ret_val=get_round_result(Ind, user_title, user_opposite_title, oppsite_ind,file_mutex, bulls, &round_result,&message_type_to_send, &oponnent_alive);
-            if (!oponnent_alive) { reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
+            if (!oponnent_alive) { ret_val=reset_game(*t_socket); IS_FALSE(ret_val, "reset_game failed\n") break; }
             IS_FALSE(ret_val, "get_round_result failed\n");
 
             if (round_result == USER_WIN)
@@ -987,6 +983,7 @@ BOOL reset_game(SOCKET socket) {
     if (ret_val != TRNS_SUCCEEDED) {
         return FALSE;
     }
+
     ret_val = SendMsg(socket, SERVER_MAIN_MENU, NULL);
     if (ret_val != TRNS_SUCCEEDED) {
         return FALSE;
