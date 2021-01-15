@@ -306,8 +306,6 @@ int open_threads()
 }
 
 
-/*this function checks if any of the threads terminated with a failure
-if fail found the function returns TRUE, otherwise returns FALSE*/
 BOOL service_thread_failed() {
     DWORD Res = 0;
     for (int Ind = 0; Ind < NUM_OF_WORKER_THREADS; Ind++) {
@@ -1187,16 +1185,7 @@ BOOL get_param_from_file(char* string_from_file, char* param, int start_point, c
     return TRUE;
 }
 
-/*
-*get_bulls_and_cows assigns to bullsand cows the results
-*
-* Accepts:
-*------ -
-*guess - pointer to string
-* opponent_digits - pointer to string
-* bulls - pointer to int
-* cows - pointer to int
-*/
+
 void get_bulls_and_cows(char* guess, char* opponent_digits, int* cows, int* bulls) {
     int digits[10] = { 0 };
     int i = 0;
