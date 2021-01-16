@@ -39,7 +39,6 @@ Description –  this file implement the client main
     SetEvent(opponent_failed);\
     printf("set event 'opponent failed'!\n");\
     connected_to_client=0;\
-    ReleaseMutex(file_mutex);\
     ret_val = disconnect_client();\
     IS_FALSE(ret_val, "disconnect_client failed\n");\
     break;}
@@ -62,6 +61,7 @@ HANDLE connected_clients_mutex = NULL;
 HANDLE ThreadHandles[NUM_OF_WORKER_THREADS];
 SOCKET ThreadInputs[NUM_OF_WORKER_THREADS];
 int connected_clients;
+HANDLE file_mutex;
 
 
 /*this function checks if any of the threads terminated with a failure
@@ -90,7 +90,7 @@ int main(int argc, char* argv[]) {
     // Initialize Winsock.
     WSADATA wsaData;
     int StartupRes = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    HANDLE file_mutex = NULL;
+   
     BOOL ret_val;
     SOCKET AcceptSocket;
     int program_running = 1;
@@ -152,15 +152,7 @@ int main(int argc, char* argv[]) {
         goto server_main_cleanup_2;
     }
     //anat
-    file_mutex = CreateMutex(
-        NULL,	/* default security attributes */
-        FALSE,	/* initially not owned */
-        NULL);	/* unnamed mutex */
-    if (NULL == file_mutex)
-    {
-        printf("Error when creating mutex: %d\n", GetLastError());
-        goto server_main_cleanup_2;
-    }
+
     connected_clients = 0;
 
     while (program_running)
@@ -614,6 +606,7 @@ BOOL get_server_responed(int *server_denied_or_approved) {
     if (connected_clients < 2) {
         connected_clients++;
         *server_denied_or_approved = SERVER_APPROVED;
+
     }
     else {
         *server_denied_or_approved = SERVER_DENIED;
@@ -622,7 +615,7 @@ BOOL get_server_responed(int *server_denied_or_approved) {
 
     //end critical section
     ret_val = ReleaseMutex(connected_clients_mutex);
-    if (FALSE == ret_val)
+    if (FALSE == ret_val) 
     {
         printf("-ERROR: %d - release semaphore failed !\n", GetLastError());
         return FALSE;
@@ -803,11 +796,22 @@ BOOL create_mutexs_and_events() {
        return FALSE;
     }
 
+
+    file_mutex = CreateSemaphore(
+        NULL,           // default security attributes
+        1,  // initial count
+        1,  // maximum count
+        NULL);          // unnamed semaphore
+
+    if (NULL == file_mutex)
+    {
+        printf("Error when creating mutex: %d\n", GetLastError());
+    }
     return TRUE;
 }
 
 /*the first thread get in this function need to open a new file, the other thread release event_file (mutex) */
-BOOL file_handle(  HANDLE file_mutex) {
+BOOL file_handle( ) {
     // check if need to open file - protected by mutex;
     DWORD wait_code;
     BOOL ret_val;
@@ -816,7 +820,7 @@ BOOL file_handle(  HANDLE file_mutex) {
     //printf("start file handle\n");
     sprintf_s(file_path, MAX_PATH, "%s", "GameSession.txt");
    /* Create the mutex that will be used to synchronize access to queue */
-    //printf(" waiting for file mutex: %d \n", file_mutex);
+    printf(" waiting for file mutex: %p \n", file_mutex);
     wait_code = WaitForSingleObject(file_mutex, INFINITE);
     //printf("enter file mutex \n");
     if (WAIT_OBJECT_0 != wait_code)
@@ -824,14 +828,14 @@ BOOL file_handle(  HANDLE file_mutex) {
         printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
         return FALSE;
     }
-    //printf("enter file mutex \n");
+    printf("enter file mutex \n");
     //critical section- check if queue is not empty and pop the mission 
     if (file == NULL) {
         ret_val = ResetEvent(close_file_event);
         if (!ret_val) return FALSE;
         file = CreateFileA((LPCSTR)file_path,// file name 
             GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-        printf("create ne file succees!\n");
+        printf("create new file succees!\n");
         if (file == INVALID_HANDLE_VALUE)
         {   
             printf("ERROR:create file failed!\n");
@@ -848,14 +852,14 @@ BOOL file_handle(  HANDLE file_mutex) {
     //end of critical section 
     //*Release queue mutex
     
-    ret_val = ReleaseMutex(file_mutex);
+    ret_val = ReleaseSemaphore(file_mutex,1,NULL);
     if (FALSE == ret_val)
     {
         printf("-ERROR: %d - release semaphore failed !\n", GetLastError());
         return FALSE;
     }
     else {
-        printf(" release file mutex succeed! \n");
+        printf("ret_val: %d release file mutex succeed! \n",ret_val);
     }
     return TRUE;
     
@@ -890,14 +894,14 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
     DWORD retval;
     HANDLE wait_for_multiple[2] = { NULL };
     char string_from_file[50] = {0};
-    //printf("start game session \n");
+    printf("waiting for file mutex \n");
     wait_code = WaitForSingleObject(file_mutex, INFINITE);
     if (WAIT_OBJECT_0 != wait_code)
     {
         printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
         return FALSE;
     }
-
+    printf("enter file mutex \n");
     //critical 
     retval = SetFilePointer(file, 0, NULL, FILE_END); //set pointer to end of file
     if (retval == INVALID_SET_FILE_POINTER) return FALSE;
@@ -905,12 +909,15 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
     if (!ret_val) return FALSE;
     ret_val = SetEvent(event_thread[Ind]);
     if (!ret_val) return FALSE;
-    //printf("end writing \n");
-    ret_val = ReleaseMutex(file_mutex);
+    
+    ret_val = ReleaseSemaphore(file_mutex, 1, NULL);
     if (FALSE == ret_val)
     {
         printf("-ERROR: %d - release semaphore failed !\n", GetLastError());
         return FALSE;
+    }
+    else {
+        printf("release file mutex succeed \n");
     }
     ////Wait for the second thread to write
     ret_val = wait_for_client_answer(&opponent_alive_from_function, 2, oppsite_ind);
@@ -920,13 +927,14 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
   
    
     //in your turn read the other user play 
-    
+    printf("waiting for file mutex \n");
     wait_code = WaitForSingleObject(file_mutex, INFINITE);
     if (WAIT_OBJECT_0 != wait_code)
     {
         printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
         return FALSE;
     }
+    printf("enter file mutex \n");
     retval = SetFilePointer(file, 0, NULL, FILE_BEGIN);
     if (retval == INVALID_SET_FILE_POINTER) return FALSE;
     ret_val = read_from_pointer_in_file(0, string_from_file);
@@ -937,18 +945,22 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
 
         ret_val = get_param_from_file(string_from_file, param, USER_TITLE - 1,user_opposite_title);
         if (!ret_val) return FALSE;
-        //printf("get_param_succseed\n");
+        printf("get_param_succseed\n");
         sprintf_s(message_from_file, USER_NAME_MSG, "%s", param);
         //printf("oppsinte name %s\n", message_from_file);
         SetEvent(event_thread_end_reading[Ind]);
     }
    
-    ret_val = ReleaseMutex(file_mutex);
+       ret_val = ReleaseSemaphore(file_mutex,1,NULL);
+
     if (FALSE == ret_val)
     {
         printf("-ERROR: %d - release mutex failed !\n", GetLastError());
         return FALSE;
     }
+    else 
+        printf("release file mutex succeed \n");
+
     ret_val = wait_for_client_answer(&opponent_alive_from_function, 3, oppsite_ind);
     *opponent_alive = opponent_alive_from_function;
     if (!ret_val) return FALSE;
@@ -965,10 +977,47 @@ BOOL game_session(int Ind , char* message_to_file, char* message_from_file, BOOL
 BOOL wait_for_another_client(int Ind, int oppsite_ind,int *oponnent_alive) {
     DWORD dwWaitResultOtherClient;
     BOOL ret_val = FALSE;
+    BOOL retval;
     ret_val = SetEvent(event_thread[Ind]);
     if (ret_val == FALSE) {
         return FALSE;
     }
+    //check file mutex is free, if not release it
+    if (Ind == 0) {
+        dwWaitResultOtherClient = WaitForSingleObject(
+            file_mutex, // event handle
+            0);
+        if (WAIT_OBJECT_0 != dwWaitResultOtherClient) {
+            ret_val = ReleaseSemaphore(file_mutex, 1, NULL);
+            if (ret_val)
+                printf("user:%d released file_mutex semaphore\n", Ind);
+        }
+        else {
+            ret_val = ReleaseSemaphore(file_mutex, 1, NULL);
+            if (ret_val)
+                printf("user:%d released file_mutex semaphore\n", Ind);
+        }
+    }
+
+    //check if there was opponent quit in last round 
+    dwWaitResultOtherClient = WaitForSingleObject(
+        opponent_failed, // event handle
+        0);
+    if (WAIT_OBJECT_0 == dwWaitResultOtherClient) {
+        retval = ResetEvent(event_thread_end_reading[0]);
+        if (!retval) return FALSE;
+        retval = ResetEvent(event_thread_end_reading[1]);
+        if (!retval) return FALSE;
+        retval = ResetEvent(close_file_event);
+        if (!retval) return FALSE;
+        retval = ResetEvent(event_file);
+        if (!retval) return FALSE;
+        retval = ResetEvent(opponent_failed);
+        if (!retval) return FALSE;
+        file = NULL;
+
+    }
+
 
     dwWaitResultOtherClient = WaitForSingleObject(
         event_thread[oppsite_ind], // event handle
@@ -981,31 +1030,21 @@ BOOL wait_for_another_client(int Ind, int oppsite_ind,int *oponnent_alive) {
         *oponnent_alive = 0;
         return TRUE;
     }    // indefinite wait
+    
+    
+
     ret_val = ResetEvent(event_thread[oppsite_ind]);
     if (!ret_val) return FALSE;
+
+    
+
     *oponnent_alive = 1;
     return TRUE;
 
 }
 BOOL reset_game(SOCKET socket) {
-    DWORD ret_val = 0;
-    BOOL retval;
-    retval = ResetEvent(opponent_failed);
-    if (!retval) return FALSE;
-    retval = ResetEvent(event_thread[0]);
-    if (!retval) return FALSE;
-    retval = ResetEvent(event_thread[1]);
-    if (!retval) return FALSE;
-    retval = ResetEvent(event_thread_end_reading[0]);
-    if (!retval) return FALSE;
-    retval = ResetEvent(event_thread_end_reading[1]);
-    if (!retval) return FALSE;
-    retval = ResetEvent(close_file_event);
-    if (!retval) return FALSE;
-    retval = ResetEvent(event_file);
-    if (!retval) return FALSE;
-    file = NULL;
 
+    DWORD ret_val = 0;
     ret_val = SendMsg(socket, SERVER_OPPONENT_QUIT, NULL);
     if (ret_val != TRNS_SUCCEEDED) {
         return FALSE;
@@ -1064,7 +1103,7 @@ BOOL clien_versus(char* user_title,char* user_name, char* user_opposite_title,in
     int opponent_alive_from_function = 1;
     
     //printf("start file handle\n");
-    retval = file_handle(file_mutex);
+    retval = file_handle();
 
     if (!retval) return FALSE;
     //printf("waiting for other player\n");
@@ -1094,7 +1133,7 @@ BOOL client_move(int Ind, char* your_guess, char* message_from_file, BOOL users_
     BOOL retval;
     int opponent_alive_from_function = 1;
     
-    retval = file_handle(file_mutex);
+    retval = file_handle();
     if (!retval) return FALSE;
     retval = wait_for_client_answer(&opponent_alive_from_function, 1, oppsite_ind);
     *opponent_alive = opponent_alive_from_function;
@@ -1118,7 +1157,7 @@ BOOL client_move(int Ind, char* your_guess, char* message_from_file, BOOL users_
     sprintf_s(cows_and_bulls, USER_NAME_MSG, "%d,%d", bulls_calculate, cows_calculate);
     sprintf_s(cows_and_bulls_message_to_file, USER_NAME_MSG, "%s%s\n\r", user_title, cows_and_bulls);
 
-    retval = file_handle(file_mutex);
+    retval = file_handle();
     if (!retval) return FALSE;
     //printf("waiting for other playar\n");
     retval = wait_for_client_answer(&opponent_alive_from_function, 1, oppsite_ind);
@@ -1148,7 +1187,7 @@ BOOL get_round_result(int Ind, char* user_title, char* user_opposite_title, int 
     char message_from_file[USER_NAME_MSG] = { 0 };
     char opponent_bulls[USER_NAME_MSG] = { 0 };
 
-    retval = file_handle(file_mutex);
+    retval = file_handle();
     if (!retval) return FALSE;
     retval = wait_for_client_answer(&opponent_alive_from_function, 1, oppsite_ind);
     *opponent_alive = opponent_alive_from_function;
@@ -1260,7 +1299,7 @@ BOOL close_file_handle(HANDLE file_mutex) {
     
     
        
-    
+    printf("waiting for file mutex (close file handle)\n");
     /* Create the mutex that will be used to synchronize access to queue */
     wait_code = WaitForSingleObject(file_mutex, INFINITE);
     if (WAIT_OBJECT_0 != wait_code)
@@ -1268,7 +1307,7 @@ BOOL close_file_handle(HANDLE file_mutex) {
         printf("-ERROR: %d - WaitForSingleObject failed !\n", GetLastError());
         return FALSE;
     }
-    //printf("enter mutex \n");
+    printf("enter mutex \n");
     //critical section- check if queue is not empty and pop the mission 
     if (file != NULL) {
         sprintf_s(file_path, 74, "%s", "GameSession.txt");
@@ -1287,12 +1326,14 @@ BOOL close_file_handle(HANDLE file_mutex) {
     //end of critical section 
     //*Release queue mutex
 
-    ret_val = ReleaseMutex(file_mutex);
+    ret_val = ReleaseSemaphore(file_mutex, 1, NULL);
     if (FALSE == ret_val)
     {
         printf("-ERROR: %d - release semaphore failed !\n", GetLastError());
         return FALSE;
     }
+    else 
+        printf("release file mutex (close handle)\n");
     return TRUE;
 
 
@@ -1303,7 +1344,7 @@ BOOL get_opponent_number(int Ind, char* user_title, char* user_opposite_title, i
     
     DWORD retval;
     int opponent_alive_from_function = 1;
-    retval = file_handle(file_mutex);
+    retval = file_handle();
     if (!retval) return FALSE;
 
     //printf("waiting for other player\n");
@@ -1330,6 +1371,8 @@ BOOL wait_for_client_answer(int* opponent_alive, int choose_event , int opponnen
     HANDLE wait_for_multiple_handles[2] = { NULL };
     wait_for_multiple_handles[1] = opponent_failed;
     DWORD dwWaitResultFile;
+    
+
     switch (choose_event)
     {
     case 2:
