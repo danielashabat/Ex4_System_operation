@@ -1347,7 +1347,7 @@ BOOL wait_for_client_answer(int* opponent_alive, int choose_event , int opponnen
     default:
         break;
     }
-    printf("check if opponeent alive \n");
+    //printf("check if opponeent alive \n");
     dwWaitResultFile = WaitForMultipleObjects(2, wait_for_multiple_handles, FALSE, INFINITE);
     if ((dwWaitResultFile - WAIT_OBJECT_0) != 0 && (dwWaitResultFile - WAIT_OBJECT_0) != 1) {
         printf("-ERROR: %d - WaitForMultipleObject failed !\n", GetLastError());
@@ -1360,6 +1360,6 @@ BOOL wait_for_client_answer(int* opponent_alive, int choose_event , int opponnen
         *opponent_alive = 1;
         
     }
-    printf("check if opponeent alive answer:%d\n", *opponent_alive);
+    //printf("check if opponeent alive answer:%d\n", *opponent_alive);
     return TRUE;
 }
