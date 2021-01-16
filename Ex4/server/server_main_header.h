@@ -1,4 +1,10 @@
 #include "SocketSendRecvTools.h"
+#include "SocketShared.h"
+#include "message.h"
+
+
+#define NUM_OF_WORKER_THREADS 3
+
 
 
 typedef struct ThreadData {
@@ -27,14 +33,7 @@ thread_handle : the handle of specific  thread
 BOOL  CreateThreadSimple(LPTHREAD_START_ROUTINE p_start_routine,
 	LPVOID p_thread_parameters, HANDLE* thread_handle);
 
-/*
-*create Thread data struct and fill the paramers needed for the thread function
-*Accept:
-*socket : pointer to socket
-*file _handle_mutex: get the handle tomutex that we created in main
-ptr_to_thread_data : pointer to ThreadData
-*/
-BOOL Create_Thread_data(SOCKET* socket, int num_of_thread, HANDLE file_handle_mutex, ThreadData** ptr_to_thread_data);
+
 
 
 /*
@@ -45,10 +44,8 @@ BOOL create_mutexs_and_events();
 /*
 *this function check if the file is  exist or assigned as NULL, if not-> we create new file . 
 If it is exits - we set event that both users checked the file. all of this protected with mutex.
-Accept
-file_mutex : handle to the mutex that protect files
 */
-BOOL file_handle(HANDLE file_mutex);
+BOOL file_handle();
 
 /*
 Each thread get index 0 or 1 
@@ -62,17 +59,6 @@ oppsite_user_name : pointer to char the contain the opponent title
 */
 int other_thread_ind(int Ind, char* user_title, char* oppsite_title);
 
-/*
-functionality: each thread write to a shared file. after they both finish writing, each thread in his turn read the opponent message.
-Ind- the user ind 
-message_to_file- the message to write in the file
-message_from_file - the message the thread read from file.(opponent message)
-users_name_flag - if we want to get user name
-user_title - title of the user to put in fille
-user_opposite_title - tilleof theopponent user to file
-oppsite_ind - the index of the opponent to use for event -to know that the opponent also fininhes
-*/
-BOOL game_session(int Ind, char* message_to_file, char* message_from_file, BOOL users_name_flag, char* user_title, char* user_opposite_title, int oppsite_ind, HANDLE file_mutex, int* opponent_alive);
 
 //
 BOOL wait_for_another_client(int Ind, int oppsite_ind, int* oponnent_alive);
@@ -100,14 +86,16 @@ user_opposite_title - tilleof theopponent user to file
 user_name - your user name
 
 oppsite_ind - the index of the opponent to use for event -to know that the opponent also fininhes
-file mutew - handle to mutex to protect file 
 opponent alive - pointer to value - 0 if the opponet failed , 1 if not
 ##end##
 
 for this function 
 oppsite_user_name  - pointer to char to save the oppsit user name
 */
-BOOL clien_versus(char* user_title, char* user_name, char* user_opposite_title, int oppsite_ind, int Ind, char* oppsite_user_name, HANDLE file_mutex, int* opponent_alive);
+BOOL game_session(int Ind, char* message_to_file, char* message_from_file, BOOL users_name_flag, char* user_title, char* user_opposite_title, int oppsite_ind, int* opponent_alive);
+
+
+
 
 
 /*
@@ -189,13 +177,11 @@ BOOL wait_for_client_answer(int* opponent_alive, int choose_event, int opponnent
 
 
 /* The threadfncion - we manage  the communcation with this function */
-static DWORD ServiceThread(LPVOID lpParam);
+DWORD ServiceThread(LPVOID lpParam);
 
 
 /* 
-we find the first abailbe qslot and return it's index to send the thread function
-*/
-static BOOL FindFirstUnusedThreadSlot(int* ptr_Ind);
+
 /*
 close all the thread and socket that we have opened if the server got exit 
 */
@@ -204,7 +190,7 @@ void close_thread_and_sockets();
 /*
 close all mutex and event - in every case 
 */
-void close_event_and_mutex(HANDLE file_mutex);
+void close_event_and_mutex();
 
 
 
@@ -213,3 +199,5 @@ if fail found the function returns TRUE, otherwise returns FALSE*/
 BOOL service_thread_failed();
 
 int open_threads();
+
+BOOL clien_versus(char* user_title, char* user_name, char* user_opposite_title, int oppsite_ind, int Ind, char* oppsite_user_name, HANDLE file_mutex, int* opponent_alive);

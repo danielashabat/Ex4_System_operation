@@ -144,6 +144,7 @@
     <ClCompile Include="..\share\SocketSendRecvTools.c" />
     <ClCompile Include="server_main.c" />
     <ClCompile Include="server_main_header.h" />
+    <ClCompile Include="ThreadFunctions.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\share\message.h" />
